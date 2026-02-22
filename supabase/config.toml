@@ -39,3 +39,8 @@ enable_confirmations = false
 # Fixes 401 Invalid JWT when Supabase gateway has JWT validation issues
 [functions.fetch-prices]
 verify_jwt = false
+
+# get-ai-suggestions validates the user manually via auth.getUser() inside the function.
+# Disable gateway JWT verification to avoid 401 Invalid JWT (e.g. after JWT key rotation).
+[functions.get-ai-suggestions]
+verify_jwt = false

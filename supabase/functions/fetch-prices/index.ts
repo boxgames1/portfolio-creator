@@ -80,6 +80,50 @@ async function fetchUsdToEurRate(): Promise<number> {
   }
 }
 
+async function fetchGbpToEurRate(): Promise<number> {
+  try {
+    const res = await fetch("https://api.exchangerate-api.com/v4/latest/GBP");
+    const data = (await res.json()) as { rates?: { EUR?: number } };
+    return data.rates?.EUR ?? 1.17;
+  } catch {
+    return 1.17;
+  }
+}
+
+const YAHOO_USER_AGENT =
+  "Mozilla/5.0 (compatible; PortfolioApp/1.0; +https://github.com)";
+
+async function fetchYahooQuote(symbol: string): Promise<{
+  price: number;
+  currency: string;
+} | null> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+        symbol
+      )}?interval=1d&range=1d`,
+      { headers: { "User-Agent": YAHOO_USER_AGENT } }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      chart?: {
+        result?: Array<{
+          meta?: { regularMarketPrice?: number; currency?: string };
+        }>;
+      };
+    };
+    const result = data.chart?.result?.[0];
+    const price = result?.meta?.regularMarketPrice;
+    const currency = (result?.meta?.currency ?? "USD").toUpperCase();
+    if (typeof price === "number" && price > 0) {
+      return { price, currency };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -97,6 +141,7 @@ serve(async (req) => {
     const { requests } = (await req.json()) as { requests: PriceRequest[] };
     const results: Record<string, PriceResult> = {};
     let usdToEurRate: number | null = null;
+    let gbpToEurRate: number | null = null;
     const pendingCrypto: {
       r: PriceRequest;
       cacheKey: string;
@@ -107,9 +152,8 @@ serve(async (req) => {
     }[] = [];
 
     for (const r of requests) {
-      const isStock = ["stock", "etf", "fund", "commodity"].includes(
-        r.asset_type
-      );
+      const isStock = ["stock", "commodity"].includes(r.asset_type);
+      const isEtfOrFund = ["etf", "fund"].includes(r.asset_type);
       const isCrypto = r.asset_type === "crypto";
       const isPreciousMetals = r.asset_type === "precious_metals";
       const isRealEstate = r.asset_type === "real_estate";
@@ -122,11 +166,12 @@ serve(async (req) => {
           ? `${r.identifier.trim().toLowerCase()}-${currency}`
           : `${r.identifier}-${currency}`;
 
-      const cacheMinutes = isStock
-        ? STOCK_CACHE_MINUTES
-        : isCrypto || isPreciousMetals
-        ? CRYPTO_CACHE_MINUTES
-        : RE_CACHE_HOURS * 60;
+      const cacheMinutes =
+        isStock || isEtfOrFund
+          ? STOCK_CACHE_MINUTES
+          : isCrypto || isPreciousMetals
+          ? CRYPTO_CACHE_MINUTES
+          : RE_CACHE_HOURS * 60;
       const cacheCutoff = new Date(
         Date.now() - cacheMinutes * 60 * 1000
       ).toISOString();
@@ -160,31 +205,92 @@ serve(async (req) => {
 
       let price: number | null = null;
       let source = "";
-      let stockSymbol = r.identifier;
 
-      // For ETF with ISIN, resolve to symbol via Finnhub search
-      if (r.asset_type === "etf" && looksLikeIsin(r.identifier) && finnhubKey) {
-        try {
-          const searchRes = await fetch(
-            `https://finnhub.io/api/v1/search?q=${encodeURIComponent(
-              r.identifier.trim().toUpperCase()
-            )}&token=${finnhubKey}`
-          );
-          const searchData = (await searchRes.json()) as {
-            result?: Array<{ symbol?: string }>;
-          };
-          const first = searchData.result?.[0];
-          if (first?.symbol) {
-            stockSymbol = first.symbol;
+      // ETF/Fund: use ISIN – resolve to symbol via Finnhub search, then quote
+      if (isEtfOrFund && finnhubKey) {
+        let symbol: string | null = null;
+        if (looksLikeIsin(r.identifier)) {
+          try {
+            const searchRes = await fetch(
+              `https://finnhub.io/api/v1/search?q=${encodeURIComponent(
+                r.identifier.trim().toUpperCase()
+              )}&token=${finnhubKey}`
+            );
+            const searchData = (await searchRes.json()) as {
+              result?: Array<{ symbol?: string; type?: string }>;
+            };
+            const etfMatch = searchData.result?.find(
+              (x) =>
+                x.type === "ETP" ||
+                x.type === "ETF" ||
+                (x.symbol && /\.(DE|PA|AS|SW|MI|L|F)$/i.test(x.symbol))
+            );
+            const first = etfMatch ?? searchData.result?.[0];
+            symbol = first?.symbol ?? null;
+          } catch {
+            /* fall through */
           }
-        } catch {
-          /* keep original identifier */
+        } else {
+          symbol = r.identifier.trim() || null;
+        }
+        if (symbol) {
+          try {
+            const quoteRes = await fetch(
+              `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
+                symbol
+              )}&token=${finnhubKey}`
+            );
+            const quoteData = (await quoteRes.json()) as {
+              c?: number;
+              error?: string;
+            };
+            if (
+              !quoteData.error &&
+              quoteData.c &&
+              typeof quoteData.c === "number" &&
+              quoteData.c > 0
+            ) {
+              price = quoteData.c;
+              source = "finnhub";
+            }
+          } catch {
+            /* fall through */
+          }
+        }
+        // Finnhub free tier only supports US markets; LSE/European symbols return
+        // "You don't have access to this resource". Fall back to Yahoo Finance.
+        if (!price && symbol) {
+          const yahoo = await fetchYahooQuote(symbol);
+          if (yahoo) {
+            price = yahoo.price;
+            source = "yahoo";
+            if (currency === "eur") {
+              if (yahoo.currency === "GBP") {
+                if (gbpToEurRate === null) {
+                  gbpToEurRate = await fetchGbpToEurRate();
+                }
+                price = price * gbpToEurRate;
+              } else if (yahoo.currency === "USD") {
+                if (usdToEurRate === null) {
+                  usdToEurRate = await fetchUsdToEurRate();
+                }
+                price = price * usdToEurRate;
+              }
+            }
+          }
+        }
+        if (price !== null && source === "finnhub" && currency === "eur") {
+          if (usdToEurRate === null) {
+            usdToEurRate = await fetchUsdToEurRate();
+          }
+          price = price * usdToEurRate;
         }
       }
 
+      // Stock/Commodity: use ticker with Tiingo/Finnhub
       if (isStock && (finnhubKey || tiingoKey)) {
-        // Try Tiingo first (IEX endpoint) – uses ticker symbol
-        if (tiingoKey && !price) {
+        const stockSymbol = r.identifier;
+        if (tiingoKey) {
           try {
             const res = await fetch(
               `https://api.tiingo.com/iex/${encodeURIComponent(
@@ -200,10 +306,9 @@ serve(async (req) => {
               }
             }
           } catch {
-            /* Fall through to Finnhub */
+            /* fall through */
           }
         }
-        // Fallback to Finnhub
         if (!price && finnhubKey) {
           try {
             const res = await fetch(
@@ -217,10 +322,9 @@ serve(async (req) => {
               source = "finnhub";
             }
           } catch {
-            /* Fallback to purchase price handled below */
+            /* fall through */
           }
         }
-        // Tiingo/Finnhub return USD – convert to EUR when requested
         if (price !== null && currency === "eur") {
           if (usdToEurRate === null) {
             usdToEurRate = await fetchUsdToEurRate();
