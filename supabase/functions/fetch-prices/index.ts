@@ -287,9 +287,27 @@ serve(async (req) => {
         }
       }
 
-      // Stock/Commodity: use ticker with Tiingo/Finnhub
+      // Stock/Commodity: resolve ISIN to symbol when needed, then use Tiingo/Finnhub/Yahoo
       if (isStock && (finnhubKey || tiingoKey)) {
-        const stockSymbol = r.identifier;
+        let stockSymbol: string = r.identifier.trim();
+        if (looksLikeIsin(stockSymbol) && finnhubKey) {
+          try {
+            const searchRes = await fetch(
+              `https://finnhub.io/api/v1/search?q=${encodeURIComponent(
+                stockSymbol.toUpperCase()
+              )}&token=${finnhubKey}`
+            );
+            const searchData = (await searchRes.json()) as {
+              result?: Array<{ symbol?: string; type?: string }>;
+            };
+            const first = searchData.result?.[0];
+            if (first?.symbol) {
+              stockSymbol = first.symbol;
+            }
+          } catch {
+            /* fall through with original identifier */
+          }
+        }
         if (tiingoKey) {
           try {
             const res = await fetch(
@@ -316,8 +334,16 @@ serve(async (req) => {
                 stockSymbol
               )}&token=${finnhubKey}`
             );
-            const data = await res.json();
-            if (data.c && typeof data.c === "number") {
+            const data = (await res.json()) as {
+              c?: number;
+              error?: string;
+            };
+            if (
+              !data.error &&
+              data.c &&
+              typeof data.c === "number" &&
+              data.c > 0
+            ) {
               price = data.c;
               source = "finnhub";
             }
@@ -325,7 +351,31 @@ serve(async (req) => {
             /* fall through */
           }
         }
-        if (price !== null && currency === "eur") {
+        if (!price) {
+          const yahoo = await fetchYahooQuote(stockSymbol);
+          if (yahoo) {
+            price = yahoo.price;
+            source = "yahoo";
+            if (currency === "eur") {
+              if (yahoo.currency === "GBP") {
+                if (gbpToEurRate === null) {
+                  gbpToEurRate = await fetchGbpToEurRate();
+                }
+                price = price * gbpToEurRate;
+              } else if (yahoo.currency === "USD") {
+                if (usdToEurRate === null) {
+                  usdToEurRate = await fetchUsdToEurRate();
+                }
+                price = price * usdToEurRate;
+              }
+            }
+          }
+        }
+        if (
+          price !== null &&
+          currency === "eur" &&
+          (source === "finnhub" || source === "tiingo")
+        ) {
           if (usdToEurRate === null) {
             usdToEurRate = await fetchUsdToEurRate();
           }

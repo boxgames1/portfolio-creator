@@ -304,7 +304,7 @@ export function AddAssetDialog({
               <Label>Purchase Price</Label>
               <Input
                 type="number"
-                step="0.01"
+                step="0.00000001"
                 {...form.register("purchase_price")}
               />
               {form.formState.errors.purchase_price && (

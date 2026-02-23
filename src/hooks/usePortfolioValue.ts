@@ -52,10 +52,9 @@ export function usePortfolioValue() {
           const meta = a.metadata as Record<string, unknown>;
           let identifier = "";
           if (["stock", "etf", "fund", "commodity"].includes(a.asset_type)) {
+            // Prioritize ISIN for stocks, ETFs, funds (more reliable for price lookup)
             identifier =
-              a.asset_type === "etf"
-                ? (meta?.isin as string) || (meta?.ticker as string) || a.name
-                : (meta?.ticker as string) || a.name;
+              (meta?.isin as string) || (meta?.ticker as string) || a.name;
           } else if (a.asset_type === "crypto") {
             identifier =
               (meta?.coingecko_id as string) ||
@@ -124,12 +123,9 @@ export function usePortfolioValue() {
           if (
             ["stock", "etf", "fund", "commodity"].includes(asset.asset_type)
           ) {
+            // Prioritize ISIN for stocks, ETFs, funds (more reliable for price lookup)
             identifier =
-              asset.asset_type === "etf"
-                ? (meta?.isin as string) ||
-                  (meta?.ticker as string) ||
-                  asset.name
-                : (meta?.ticker as string) || asset.name;
+              (meta?.isin as string) || (meta?.ticker as string) || asset.name;
           } else if (asset.asset_type === "crypto") {
             identifier =
               (meta?.coingecko_id as string) ||
