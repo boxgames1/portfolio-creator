@@ -20,13 +20,13 @@ interface PortfolioValue {
   totalValue: number;
   totalCost: number;
   byType: { type: string; value: number; cost: number }[];
-        assetsWithPrices: {
-          id: string;
-          currentPrice?: number;
-          currentValue?: number;
-          costInEur?: number;
-          roi?: number;
-        }[];
+  assetsWithPrices: {
+    id: string;
+    currentPrice?: number;
+    currentValue?: number;
+    costInEur?: number;
+    roi?: number;
+  }[];
 }
 
 export function usePortfolioValue() {
