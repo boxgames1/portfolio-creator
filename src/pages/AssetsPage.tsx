@@ -1,8 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAssets } from "@/hooks/useAssets";
 import { usePortfolioValue } from "@/hooks/usePortfolioValue";
 import { AssetList } from "@/components/assets/AssetList";
@@ -10,10 +17,20 @@ import { AddAssetDialog } from "@/components/assets/AddAssetDialog";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
 
+type SortOption = "investment-asc" | "investment-desc" | "roi-asc" | "roi-desc";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "investment-asc", label: "My investment (asc)" },
+  { value: "investment-desc", label: "My investment (desc)" },
+  { value: "roi-asc", label: "By ROI (asc)" },
+  { value: "roi-desc", label: "By ROI (desc)" },
+];
+
 export function AssetsPage() {
   const [searchParams] = useSearchParams();
   const [addOpen, setAddOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
+  const [sortBy, setSortBy] = useState<SortOption>("investment-desc");
 
   useEffect(() => {
     if (searchParams.get("add") === "1") {
@@ -21,12 +38,34 @@ export function AssetsPage() {
     }
   }, [searchParams]);
   const { data: assets, isLoading } = useAssets();
-  const { isLoading: portfolioLoading } = usePortfolioValue();
+  const { data: portfolio, isLoading: portfolioLoading } = usePortfolioValue();
 
   const filteredAssets =
     assets?.filter(
       (a) => typeFilter === "all" || a.asset_type === typeFilter
     ) ?? [];
+
+  const sortedAssets = useMemo(() => {
+    const arr = [...filteredAssets];
+    if (sortBy.startsWith("investment")) {
+      const asc = sortBy === "investment-asc";
+      arr.sort((a, b) => {
+        const costA = a.purchase_price * a.quantity;
+        const costB = b.purchase_price * b.quantity;
+        return asc ? costA - costB : costB - costA;
+      });
+    } else {
+      const asc = sortBy === "roi-asc";
+      arr.sort((a, b) => {
+        const roiA =
+          portfolio?.assetsWithPrices.find((p) => p.id === a.id)?.roi ?? 0;
+        const roiB =
+          portfolio?.assetsWithPrices.find((p) => p.id === b.id)?.roi ?? 0;
+        return asc ? roiA - roiB : roiB - roiA;
+      });
+    }
+    return arr;
+  }, [filteredAssets, sortBy, portfolio?.assetsWithPrices]);
 
   return (
     <div className="space-y-8">
@@ -37,8 +76,23 @@ export function AssetsPage() {
             Manage your portfolio assets
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
+          <Select
+            value={sortBy}
+            onValueChange={(v) => setSortBy(v as SortOption)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button onClick={() => setAddOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Asset
@@ -53,7 +107,7 @@ export function AssetsPage() {
           ))}
         </div>
       ) : (
-        <AssetList assets={filteredAssets} />
+        <AssetList assets={sortedAssets} />
       )}
 
       <AddAssetDialog open={addOpen} onOpenChange={setAddOpen} />

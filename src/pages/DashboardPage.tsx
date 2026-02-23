@@ -47,18 +47,20 @@ const COLORS = [
 export function DashboardPage() {
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
+  const [excludeRealEstate, setExcludeRealEstate] = useState(false);
   const { data: assets, isLoading } = useAssets();
   const { data: portfolio, isLoading: portfolioLoading } = usePortfolioValue();
   const aiSuggestions = useAISuggestions();
   const { data: fearGreed, isLoading: fearGreedLoading } = useFearGreed();
 
   const filteredAssets =
-    assets?.filter(
-      (a) => typeFilter === "all" || a.asset_type === typeFilter
-    ) ?? [];
+    assets?.filter((a) => {
+      if (excludeRealEstate && a.asset_type === "real_estate") return false;
+      return typeFilter === "all" || a.asset_type === typeFilter;
+    }) ?? [];
 
   const filteredPortfolio =
-    portfolio && typeFilter !== "all"
+    portfolio && (typeFilter !== "all" || excludeRealEstate)
       ? (() => {
           const filteredIds = new Set(filteredAssets.map((a) => a.id));
           const filteredWithPrices = portfolio.assetsWithPrices.filter((p) =>
@@ -156,7 +158,18 @@ export function DashboardPage() {
             Overview of your portfolio
           </p>
         </div>
-        <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
+        <div className="flex flex-wrap items-center gap-4">
+          <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              checked={excludeRealEstate}
+              onChange={(e) => setExcludeRealEstate(e.target.checked)}
+              className="rounded border-input"
+            />
+            Without real estate
+          </label>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
