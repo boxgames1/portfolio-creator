@@ -20,12 +20,13 @@ interface PortfolioValue {
   totalValue: number;
   totalCost: number;
   byType: { type: string; value: number; cost: number }[];
-  assetsWithPrices: {
-    id: string;
-    currentPrice?: number;
-    currentValue?: number;
-    roi?: number;
-  }[];
+        assetsWithPrices: {
+          id: string;
+          currentPrice?: number;
+          currentValue?: number;
+          costInEur?: number;
+          roi?: number;
+        }[];
 }
 
 export function usePortfolioValue() {
@@ -71,9 +72,26 @@ export function usePortfolioValue() {
           return {
             identifier,
             asset_type: a.asset_type,
-            currency: (a.currency || "EUR").toLowerCase(),
+            currency: "eur", // Always fetch prices in EUR
           };
         });
+
+      // Fetch USD→EUR rate if any assets are in USD (for cost conversion to EUR)
+      let usdToEur = 0.92;
+      const hasUsdAssets = assets.some(
+        (a) => (a.currency || "eur").toLowerCase() === "usd"
+      );
+      if (hasUsdAssets) {
+        try {
+          const res = await fetch(
+            "https://api.exchangerate-api.com/v4/latest/USD"
+          );
+          const data = (await res.json()) as { rates?: { EUR?: number } };
+          usdToEur = data.rates?.EUR ?? 0.92;
+        } catch {
+          /* use default */
+        }
+      }
 
       let prices: PriceResponse = {};
       try {
@@ -98,7 +116,11 @@ export function usePortfolioValue() {
       const now = new Date();
 
       for (const asset of assets) {
-        const cost = asset.purchase_price * asset.quantity;
+        let cost = asset.purchase_price * asset.quantity;
+        const assetCurrency = (asset.currency || "eur").toLowerCase();
+        if (assetCurrency === "usd") {
+          cost = cost * usdToEur;
+        }
         totalCost += cost;
 
         let currentPrice: number;
@@ -117,6 +139,9 @@ export function usePortfolioValue() {
               : 1;
           currentPrice = growthFactor;
           currentValue = asset.quantity * growthFactor;
+          if (assetCurrency === "usd") {
+            currentValue = currentValue * usdToEur;
+          }
         } else {
           const meta = asset.metadata as Record<string, unknown>;
           let identifier = "";
@@ -141,7 +166,7 @@ export function usePortfolioValue() {
           }
 
           const priceData =
-            prices[priceKey(identifier, asset.currency, asset.asset_type)];
+            prices[priceKey(identifier, "eur", asset.asset_type)];
           currentPrice = priceData?.price ?? asset.purchase_price;
           currentValue = currentPrice * asset.quantity;
         }
@@ -161,6 +186,7 @@ export function usePortfolioValue() {
           id: asset.id,
           currentPrice,
           currentValue,
+          costInEur: cost,
           roi,
         });
       }

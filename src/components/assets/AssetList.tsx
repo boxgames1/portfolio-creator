@@ -58,7 +58,8 @@ export function AssetList({ assets }: AssetListProps) {
         const currentPrice = priceInfo?.currentPrice ?? asset.purchase_price;
         const currentValue =
           priceInfo?.currentValue ?? asset.purchase_price * asset.quantity;
-        const cost = asset.purchase_price * asset.quantity;
+        const cost =
+          priceInfo?.costInEur ?? asset.purchase_price * asset.quantity;
         const roi = priceInfo?.roi ?? 0;
 
         const meta = asset.metadata as Record<string, unknown>;
@@ -107,11 +108,11 @@ export function AssetList({ assets }: AssetListProps) {
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
                   {asset.quantity} ×{" "}
-                  {formatCurrency(asset.purchase_price, asset.currency)} ={" "}
-                  {formatCurrency(cost, asset.currency)} (cost)
+                  {formatCurrency(cost / asset.quantity, "EUR")} ={" "}
+                  {formatCurrency(cost, "EUR")} (cost)
                 </div>
                 <div className="mt-0.5 text-sm text-muted-foreground">
-                  Current: {formatCurrency(currentPrice, asset.currency)}/unit
+                  Current: {formatCurrency(currentPrice, "EUR")}/unit
                 </div>
                 {asset.asset_type === "real_estate" &&
                   typeof meta?.interest_rate === "number" &&
@@ -175,12 +176,12 @@ export function AssetList({ assets }: AssetListProps) {
                     {stakingApy > 0 && (
                       <>
                         <div className="text-xs text-muted-foreground">
-                          Est. yield: +
-                          {formatCurrency(estStakingYield, asset.currency)}/yr
+                          Est. yield: +{formatCurrency(estStakingYield, "EUR")}
+                          /yr
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Projected 1Y:{" "}
-                          {formatCurrency(projected1YValue, asset.currency)} (
+                          {formatCurrency(projected1YValue, "EUR")} (
                           <span
                             className={
                               projected1YRoi >= 0
@@ -200,7 +201,7 @@ export function AssetList({ assets }: AssetListProps) {
               </div>
               <div className="text-right">
                 <p className="font-semibold">
-                  {formatCurrency(currentValue, asset.currency)}
+                  {formatCurrency(currentValue, "EUR")}
                 </p>
                 <p
                   className={`text-sm ${
@@ -211,7 +212,7 @@ export function AssetList({ assets }: AssetListProps) {
                   {roi.toFixed(1)}% {stakingEnabled ? "base " : ""}ROI
                   <span className="ml-1 text-muted-foreground">
                     ({currentValue >= cost ? "+" : ""}
-                    {formatCurrency(currentValue - cost, asset.currency)})
+                    {formatCurrency(currentValue - cost, "EUR")})
                   </span>
                 </p>
                 <DropdownMenu>
