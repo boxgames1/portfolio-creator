@@ -44,3 +44,6 @@ verify_jwt = false
 # Disable gateway JWT verification to avoid 401 Invalid JWT (e.g. after JWT key rotation).
 [functions.get-ai-suggestions]
 verify_jwt = false
+
+[functions.get-portfolio-sentiment]
+verify_jwt = false

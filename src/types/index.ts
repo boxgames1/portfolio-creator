@@ -1,3 +1,24 @@
+export type SuggestionPriority = "high" | "medium" | "low";
+
+export interface AISuggestionItem {
+  text: string;
+  priority: SuggestionPriority;
+}
+
+export interface AISuggestionResponse {
+  rating: number;
+  strengths?: string[];
+  weaknesses?: string[];
+  suggestions: string[] | AISuggestionItem[];
+}
+
+export interface NormalizedAISuggestionResponse {
+  rating: number;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: AISuggestionItem[];
+}
+
 export type AssetType =
   | "stock"
   | "etf"

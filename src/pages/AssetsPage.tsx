@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,6 +16,7 @@ import { AssetList } from "@/components/assets/AssetList";
 import { AddAssetDialog } from "@/components/assets/AddAssetDialog";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
+import { useRefreshPrices } from "@/hooks/useRefreshPrices";
 
 type SortOption = "investment-asc" | "investment-desc" | "roi-asc" | "roi-desc";
 
@@ -39,7 +40,11 @@ export function AssetsPage() {
   }, [searchParams]);
   const { data: assets, isLoading } = useAssets();
   const { data: portfolio, isLoading: portfolioLoading } = usePortfolioValue();
-
+  const refreshPrices = useRefreshPrices();
+  console.log("=========================");
+  console.log("refreshPrices");
+  console.log(refreshPrices);
+  console.log("=========================");
   const filteredAssets =
     assets?.filter(
       (a) => typeFilter === "all" || a.asset_type === typeFilter
@@ -93,6 +98,23 @@ export function AssetsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            onClick={() => assets && refreshPrices.mutate(assets)}
+            disabled={
+              !assets ||
+              assets.length === 0 ||
+              refreshPrices.isPending ||
+              assets.every((a) => a.asset_type === "fiat")
+            }
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${
+                refreshPrices.isPending ? "animate-spin" : ""
+              }`}
+            />
+            Refresh prices
+          </Button>
           <Button onClick={() => setAddOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Asset

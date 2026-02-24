@@ -62,7 +62,8 @@ serve(async (req) => {
       }>;
     };
     const { portfolio, assets: assetsList } = body;
-    const cacheKey = `ai-${user.id}-${portfolio.totalValue}-${
+
+    const cacheKey = `sentiment-${user.id}-${portfolio.totalValue}-${
       portfolio.totalCost
     }-${JSON.stringify(portfolio.byType)}`;
 
@@ -70,7 +71,7 @@ serve(async (req) => {
       Date.now() - CACHE_HOURS * 60 * 60 * 1000
     ).toISOString();
     const { data: cached } = await supabaseAdmin
-      .from("ai_suggestion_cache")
+      .from("portfolio_sentiment_cache")
       .select("response")
       .eq("user_id", user.id)
       .eq("cache_key", cacheKey)
@@ -86,11 +87,8 @@ serve(async (req) => {
     if (!openaiKey) {
       return new Response(
         JSON.stringify({
-          error: "OpenAI not configured",
-          rating: 0,
-          strengths: [],
-          weaknesses: [],
-          suggestions: [],
+          value: 50,
+          explanation: "OpenAI not configured. Sentiment cannot be calculated.",
         }),
         {
           status: 200,
@@ -101,35 +99,28 @@ serve(async (req) => {
 
     const assetsContext =
       assetsList && assetsList.length > 0
-        ? `\n\nHoldings (for identifying underperformers/high-fee assets):\n${assetsList
+        ? `\n\nHoldings:\n${assetsList
             .map(
               (a) =>
                 `- ${a.name} (${a.asset_type}, ${
                   a.identifier
-                }): cost ${a.cost.toLocaleString()}€, value ${a.currentValue.toLocaleString()}€, ROI ${a.roi.toFixed(
+                }): ${a.currentValue.toLocaleString()}€, ROI ${a.roi.toFixed(
                   1
                 )}%`
             )
             .join("\n")}`
         : "";
 
-    const prompt = `You are a portfolio advisor. Analyze this portfolio and provide:
+    const prompt = `You are a portfolio analyst. Analyze this portfolio's ALLOCATION and COMPOSITION across ALL asset types (stocks, ETFs, funds, crypto, real estate, commodities, fiat, etc.) to infer the investor's sentiment.
 
-1. A rating from 1-10
-2. strengths: 2-4 brief strengths of the portfolio (what's working well)
-3. weaknesses: 2-4 brief weaknesses or areas of concern
-4. suggestions: 3-5 specific, actionable suggestions. Each must have:
-   - text: the suggestion
-   - priority: "high" | "medium" | "low" based on urgency and criticality
-     * high: urgent/critical (e.g. high fees, concentrated risk, underperformers)
-     * medium: important but not urgent
-     * low: nice-to-have improvements
+Fear & Greed scale (0 = Extreme Fear, 100 = Extreme Greed):
+- 0-24 Extreme Fear: Heavy cash/fiat, very defensive, minimal risk
+- 25-44 Fear: Conservative allocation, bonds/real estate, low equity
+- 45-54 Neutral: Balanced, diversified across asset types
+- 55-74 Greed: Aggressive, high equity/crypto, concentrated bets
+- 75-100 Extreme Greed: Very concentrated, crypto-heavy, speculative
 
-RULES:
-- When suggesting ETFs, stocks, or crypto: ALWAYS include the specific ticker/ISIN (e.g. "VWCE.DE", "IE00B4L5Y983", "BTC"). Add a brief reason and estimated value range if relevant.
-- If there are high-fee assets or underperformers in the holdings, NAME them explicitly (use the identifier) and explain why. Mark these as high priority.
-- When suggesting REITs (Real Estate Investment Trusts), mention specific examples with tickers (e.g. VNQ, SRET) and a one-line rationale.
-- Keep each item concise but specific.
+Consider: allocation by type, diversification, risk level, concentration, ROI. Base this on the PORTFOLIO's allocation and structure, not external market sentiment.
 
 Portfolio: Total value ${portfolio.totalValue.toLocaleString()}€, Total cost ${portfolio.totalCost.toLocaleString()}€, ROI ${
       portfolio.roi?.toFixed(1) ?? 0
@@ -143,13 +134,8 @@ Allocation: ${
         .join(", ") || "N/A"
     }${assetsContext}
 
-Format your response as JSON:
-{
-  "rating": number,
-  "strengths": string[],
-  "weaknesses": string[],
-  "suggestions": [{"text": string, "priority": "high"|"medium"|"low"}]
-}`;
+Respond with JSON only: { "value": number (0-100), "explanation": string }
+The explanation should be 1-2 sentences explaining why the portfolio reflects this sentiment level.`;
 
     const openaiRes = await fetch(
       "https://api.openai.com/v1/chat/completions",
@@ -162,57 +148,32 @@ Format your response as JSON:
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 1000,
+          max_tokens: 200,
         }),
       }
     );
 
     const openaiData = await openaiRes.json();
     const rawContent = openaiData.choices?.[0]?.message?.content || "{}";
-    // Extract JSON: LLMs often wrap in ```json ... ``` or add extra text
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
     const content = jsonMatch ? jsonMatch[0] : rawContent;
-    let parsed: {
-      rating?: number;
-      strengths?: string[];
-      weaknesses?: string[];
-      suggestions?: string[] | Array<{ text: string; priority?: string }>;
-    };
+    let parsed: { value?: number; explanation?: string };
     try {
       parsed = JSON.parse(content);
     } catch {
       parsed = {
-        rating: 5,
-        strengths: [],
-        weaknesses: [],
-        suggestions: [
-          { text: "Unable to parse AI response.", priority: "medium" },
-        ],
+        value: 50,
+        explanation: "Unable to parse AI response.",
       };
     }
 
-    const rawSuggestions = parsed.suggestions;
-    const suggestions = Array.isArray(rawSuggestions)
-      ? rawSuggestions.map((s) =>
-          typeof s === "string"
-            ? { text: s, priority: "medium" as const }
-            : {
-                text: s.text ?? String(s),
-                priority: (s.priority === "high" || s.priority === "low"
-                  ? s.priority
-                  : "medium") as "high" | "medium" | "low",
-              }
-        )
-      : [];
-
+    const value = Math.min(100, Math.max(0, parsed.value ?? 50));
     const response = {
-      rating: parsed.rating ?? 5,
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-      weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [],
-      suggestions,
+      value,
+      explanation: parsed.explanation ?? "Sentiment analysis complete.",
     };
 
-    await supabaseAdmin.from("ai_suggestion_cache").insert({
+    await supabaseAdmin.from("portfolio_sentiment_cache").insert({
       user_id: user.id,
       cache_key: cacheKey,
       response,
@@ -223,13 +184,14 @@ Format your response as JSON:
       Date.now() - CACHE_RETENTION_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
     await supabaseAdmin
-      .from("ai_suggestion_cache")
+      .from("portfolio_sentiment_cache")
       .delete()
       .eq("user_id", user.id)
       .lt("created_at", evictionCutoff);
 
+    // Cap: keep only the N most recent per user
     const { data: all } = await supabaseAdmin
-      .from("ai_suggestion_cache")
+      .from("portfolio_sentiment_cache")
       .select("id")
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
@@ -238,7 +200,7 @@ Format your response as JSON:
         .slice(0, all.length - MAX_CACHE_ENTRIES_PER_USER)
         .map((r) => r.id);
       await supabaseAdmin
-        .from("ai_suggestion_cache")
+        .from("portfolio_sentiment_cache")
         .delete()
         .in("id", toDelete);
     }

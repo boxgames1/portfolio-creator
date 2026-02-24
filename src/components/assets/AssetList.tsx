@@ -86,6 +86,17 @@ export function AssetList({ assets }: AssetListProps) {
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold">{asset.name}</p>
+                  {["stock", "etf", "fund", "commodity"].includes(
+                    asset.asset_type
+                  ) &&
+                    ((meta?.ticker as string) || (meta?.isin as string)) && (
+                      <span className="text-xs text-muted-foreground">
+                        ·{" "}
+                        {[meta?.ticker as string, meta?.isin as string]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    )}
                   <span className="text-xs text-muted-foreground capitalize">
                     {asset.asset_type.replace("_", " ")}
                     {asset.asset_type === "precious_metals" &&

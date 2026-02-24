@@ -1,36 +1,38 @@
-import { Outlet } from 'react-router-dom'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Wallet, PlusCircle, LogOut } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
-import { useTheme } from '@/hooks/useTheme'
-import { Moon, Sun } from 'lucide-react'
+import { Outlet } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Wallet, PlusCircle, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
+import { useTheme } from "@/hooks/useTheme";
+import { Moon, Sun } from "lucide-react";
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/assets', label: 'Assets', icon: Wallet },
-]
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/assets", label: "Assets", icon: Wallet },
+];
 
 export function Layout() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { theme, toggleTheme } = useTheme()
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-  }
+    await supabase.auth.signOut();
+  };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       <aside className="w-full md:w-64 border-r bg-card flex flex-col shrink-0">
         <div className="p-6 border-b">
-          <h1 className="text-xl font-bold">Portfolio</h1>
+          <Link to="/" className="block">
+            <img src="/logo.svg" alt="PortfoLens" className="h-12 w-auto" />
+          </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map(({ path, label, icon: Icon }) => (
             <Link key={path} to={path}>
               <Button
-                variant={location.pathname === path ? 'secondary' : 'ghost'}
+                variant={location.pathname === path ? "secondary" : "ghost"}
                 className="w-full justify-start"
               >
                 <Icon className="mr-2 h-4 w-4" />
@@ -41,7 +43,7 @@ export function Layout() {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate('/assets?add=1')}
+            onClick={() => navigate("/assets?add=1")}
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Asset
@@ -53,12 +55,12 @@ export function Layout() {
             className="w-full justify-start"
             onClick={toggleTheme}
           >
-            {theme === 'dark' ? (
+            {theme === "dark" ? (
               <Sun className="h-4 w-4 mr-2" />
             ) : (
               <Moon className="h-4 w-4 mr-2" />
             )}
-            {theme === 'dark' ? 'Light' : 'Dark'}
+            {theme === "dark" ? "Light" : "Dark"}
           </Button>
           <Button
             variant="ghost"
@@ -74,5 +76,5 @@ export function Layout() {
         <Outlet />
       </main>
     </div>
-  )
+  );
 }

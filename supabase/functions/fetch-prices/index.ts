@@ -10,6 +10,7 @@ const corsHeaders = {
 const STOCK_CACHE_MINUTES = 5;
 const CRYPTO_CACHE_MINUTES = 1;
 const RE_CACHE_HOURS = 24;
+const RE_ESTIMATION_CACHE_RETENTION_DAYS = 7;
 
 // CoinGecko uses coin IDs (e.g. "ripple") not symbols (e.g. "xrp")
 const SYMBOL_TO_COINGECKO_ID: Record<string, string> = {
@@ -90,6 +91,68 @@ async function fetchGbpToEurRate(): Promise<number> {
   }
 }
 
+async function fetchChfToEurRate(): Promise<number> {
+  try {
+    const res = await fetch("https://api.exchangerate-api.com/v4/latest/CHF");
+    const data = (await res.json()) as { rates?: { EUR?: number } };
+    return data.rates?.EUR ?? 1.05;
+  } catch {
+    return 1.05;
+  }
+}
+
+async function fetchCadToEurRate(): Promise<number> {
+  try {
+    const res = await fetch("https://api.exchangerate-api.com/v4/latest/CAD");
+    const data = (await res.json()) as { rates?: { EUR?: number } };
+    return data.rates?.EUR ?? 0.68;
+  } catch {
+    return 0.68;
+  }
+}
+
+/** Infer quote currency from Alpha Vantage symbol suffix (GLOBAL_QUOTE doesn't return currency) */
+function inferCurrencyFromSymbol(symbol: string): string {
+  const s = symbol.toUpperCase();
+  if (/\.(TRT|TRV|TO|V|TSXV)$/.test(s)) return "CAD";
+  if (/\.(SW)$/.test(s)) return "CHF";
+  if (/\.(DEX|DE|F|PA|AS|MI)$/.test(s)) return "EUR";
+  if (/\.LON$/.test(s)) return "GBP";
+  if (/\.(L)$/.test(s)) return "USD"; // .L = LSE, often USD-denominated ETFs/stocks
+  return "USD";
+}
+
+async function fetchAlphaVantageQuote(
+  symbol: string,
+  apiKey: string
+): Promise<{ price: number; currency: string } | null> {
+  if (
+    !["OM.TO", "AGX.V", "SCOT.V", "GRSL.V", "GGD.TO", "GSVR.V"].includes(symbol)
+  ) {
+    return null;
+  }
+  try {
+    const res = await fetch(
+      `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(
+        symbol
+      )}&apikey=${apiKey}`
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      "Global Quote"?: { "05. price"?: string };
+    };
+    const quote = data["Global Quote"];
+    const priceStr = quote?.["05. price"];
+    if (!priceStr) return null;
+    const price = parseFloat(priceStr);
+    if (isNaN(price) || price <= 0) return null;
+    const currency = inferCurrencyFromSymbol(symbol);
+    return { price, currency };
+  } catch {
+    return null;
+  }
+}
+
 const YAHOO_USER_AGENT =
   "Mozilla/5.0 (compatible; PortfolioApp/1.0; +https://github.com)";
 
@@ -134,14 +197,28 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const finnhubKey = Deno.env.get("FINNHUB_API_KEY");
     const tiingoKey = Deno.env.get("TIINGO_API_KEY");
+    const alphaVantageKey = Deno.env.get("ALPHA_VANTAGE_API_KEY");
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { requests } = (await req.json()) as { requests: PriceRequest[] };
+    const body = (await req.json()) as {
+      requests: PriceRequest[];
+      forceRefresh?: boolean;
+    };
+    const { requests, forceRefresh } = body;
     const results: Record<string, PriceResult> = {};
-    let usdToEurRate: number | null = null;
-    let gbpToEurRate: number | null = null;
+    let didUpsertRealEstate = false;
+
+    // Fetch FX rates once at the start for EUR conversion
+    const [usdToEurRate, gbpToEurRate, chfToEurRate, cadToEurRate] =
+      await Promise.all([
+        fetchUsdToEurRate(),
+        fetchGbpToEurRate(),
+        fetchChfToEurRate(),
+        fetchCadToEurRate(),
+      ]);
+
     const pendingCrypto: {
       r: PriceRequest;
       cacheKey: string;
@@ -180,14 +257,18 @@ serve(async (req) => {
         isCrypto || isPreciousMetals
           ? r.identifier.trim().toLowerCase()
           : r.identifier;
-      const { data: cached } = await supabase
-        .from("price_cache")
-        .select("price, source")
-        .eq("identifier", cacheIdentifier)
-        .eq("asset_type", r.asset_type)
-        .eq("currency", currency)
-        .gt("fetched_at", cacheCutoff)
-        .single();
+      let cached: { price: number; source: string | null } | null = null;
+      if (!forceRefresh) {
+        const { data } = await supabase
+          .from("price_cache")
+          .select("price, source")
+          .eq("identifier", cacheIdentifier)
+          .eq("asset_type", r.asset_type)
+          .eq("currency", currency)
+          .gt("fetched_at", cacheCutoff)
+          .single();
+        cached = data;
+      }
 
       if (cached) {
         const cachedSource = cached.source || "cache";
@@ -206,10 +287,10 @@ serve(async (req) => {
       let price: number | null = null;
       let source = "";
 
-      // ETF/Fund: use ISIN – resolve to symbol via Finnhub search, then quote
-      if (isEtfOrFund && finnhubKey) {
+      // ETF/Fund: Alpha Vantage first (EUR-friendly), then Finnhub, Yahoo
+      if (isEtfOrFund && (alphaVantageKey || finnhubKey)) {
         let symbol: string | null = null;
-        if (looksLikeIsin(r.identifier)) {
+        if (looksLikeIsin(r.identifier) && finnhubKey) {
           try {
             const searchRes = await fetch(
               `https://finnhub.io/api/v1/search?q=${encodeURIComponent(
@@ -233,7 +314,20 @@ serve(async (req) => {
         } else {
           symbol = r.identifier.trim() || null;
         }
-        if (symbol) {
+        if (symbol && alphaVantageKey) {
+          const av = await fetchAlphaVantageQuote(symbol, alphaVantageKey);
+          if (av && av.price > 0) {
+            price = av.price;
+            source = "alphavantage";
+            if (currency === "eur" && av.currency !== "EUR") {
+              if (av.currency === "USD") price = price * usdToEurRate;
+              else if (av.currency === "GBP") price = price * gbpToEurRate;
+              else if (av.currency === "CHF") price = price * chfToEurRate;
+              else if (av.currency === "CAD") price = price * cadToEurRate;
+            }
+          }
+        }
+        if (!price && symbol && finnhubKey) {
           try {
             const quoteRes = await fetch(
               `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
@@ -265,30 +359,18 @@ serve(async (req) => {
             price = yahoo.price;
             source = "yahoo";
             if (currency === "eur") {
-              if (yahoo.currency === "GBP") {
-                if (gbpToEurRate === null) {
-                  gbpToEurRate = await fetchGbpToEurRate();
-                }
-                price = price * gbpToEurRate;
-              } else if (yahoo.currency === "USD") {
-                if (usdToEurRate === null) {
-                  usdToEurRate = await fetchUsdToEurRate();
-                }
-                price = price * usdToEurRate;
-              }
+              if (yahoo.currency === "GBP") price = price * gbpToEurRate;
+              else if (yahoo.currency === "USD") price = price * usdToEurRate;
             }
           }
         }
         if (price !== null && source === "finnhub" && currency === "eur") {
-          if (usdToEurRate === null) {
-            usdToEurRate = await fetchUsdToEurRate();
-          }
           price = price * usdToEurRate;
         }
       }
 
-      // Stock/Commodity: resolve ISIN to symbol when needed, then use Tiingo/Finnhub/Yahoo
-      if (isStock && (finnhubKey || tiingoKey)) {
+      // Stock/Commodity: Alpha Vantage first (EUR-friendly), then Tiingo, Finnhub, Yahoo
+      if (isStock && (alphaVantageKey || tiingoKey || finnhubKey)) {
         let stockSymbol: string = r.identifier.trim();
         if (looksLikeIsin(stockSymbol) && finnhubKey) {
           try {
@@ -308,11 +390,27 @@ serve(async (req) => {
             /* fall through with original identifier */
           }
         }
-        if (tiingoKey) {
+        if (alphaVantageKey) {
+          const av = await fetchAlphaVantageQuote(stockSymbol, alphaVantageKey);
+          if (av && av.price > 0) {
+            price = av.price;
+            source = "alphavantage";
+            if (currency === "eur" && av.currency !== "EUR") {
+              if (av.currency === "USD") price = price * usdToEurRate;
+              else if (av.currency === "GBP") price = price * gbpToEurRate;
+              else if (av.currency === "CHF") price = price * chfToEurRate;
+              else if (av.currency === "CAD") price = price * cadToEurRate;
+            }
+          }
+        }
+
+        if (!price && tiingoKey) {
           try {
+            // Tiingo expects base ticker only (e.g. PAAS, not PAAS.TO)
+            const tiingoSymbol = stockSymbol.replace(/\.[A-Za-z]+$/, "");
             const res = await fetch(
               `https://api.tiingo.com/iex/${encodeURIComponent(
-                stockSymbol
+                tiingoSymbol
               )}?token=${tiingoKey}`
             );
             if (res.ok) {
@@ -357,17 +455,8 @@ serve(async (req) => {
             price = yahoo.price;
             source = "yahoo";
             if (currency === "eur") {
-              if (yahoo.currency === "GBP") {
-                if (gbpToEurRate === null) {
-                  gbpToEurRate = await fetchGbpToEurRate();
-                }
-                price = price * gbpToEurRate;
-              } else if (yahoo.currency === "USD") {
-                if (usdToEurRate === null) {
-                  usdToEurRate = await fetchUsdToEurRate();
-                }
-                price = price * usdToEurRate;
-              }
+              if (yahoo.currency === "GBP") price = price * gbpToEurRate;
+              else if (yahoo.currency === "USD") price = price * usdToEurRate;
             }
           }
         }
@@ -376,9 +465,6 @@ serve(async (req) => {
           currency === "eur" &&
           (source === "finnhub" || source === "tiingo")
         ) {
-          if (usdToEurRate === null) {
-            usdToEurRate = await fetchUsdToEurRate();
-          }
           price = price * usdToEurRate;
         }
       }
@@ -498,9 +584,24 @@ serve(async (req) => {
             },
             { onConflict: "identifier,asset_type,currency" }
           );
+          if (isRealEstate && source === "openai") {
+            didUpsertRealEstate = true;
+          }
         }
         results[cacheKey] = { price, source };
       }
+    }
+
+    // Evict old real estate AI estimations
+    if (didUpsertRealEstate) {
+      const evictionCutoff = new Date(
+        Date.now() - RE_ESTIMATION_CACHE_RETENTION_DAYS * 24 * 60 * 60 * 1000
+      ).toISOString();
+      await supabase
+        .from("price_cache")
+        .delete()
+        .eq("asset_type", "real_estate")
+        .lt("fetched_at", evictionCutoff);
     }
 
     // Batch fetch all crypto in a single CoinGecko API call per currency (avoids rate limiting)

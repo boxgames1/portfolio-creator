@@ -1,0 +1,93 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 180 40"
+  width="180"
+  height="40"
+>
+  <defs>
+    <linearGradient
+      id="logo-bar1"
+      x1="0"
+      y1="0"
+      x2="0"
+      y2="1"
+      gradientUnits="objectBoundingBox"
+    >
+      <stop offset="0%" stop-color="#0d9488" />
+      <stop offset="100%" stop-color="#5eead4" />
+    </linearGradient>
+    <linearGradient
+      id="logo-bar2"
+      x1="0"
+      y1="0"
+      x2="0"
+      y2="1"
+      gradientUnits="objectBoundingBox"
+    >
+      <stop offset="0%" stop-color="#0891b2" />
+      <stop offset="100%" stop-color="#0e7490" />
+    </linearGradient>
+    <linearGradient
+      id="logo-bar3"
+      x1="0"
+      y1="0"
+      x2="0"
+      y2="1"
+      gradientUnits="objectBoundingBox"
+    >
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient
+      id="logo-orbit"
+      x1="6"
+      y1="30"
+      x2="38"
+      y2="12"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop offset="0%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <filter id="logo-shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow
+        dx="0"
+        dy="2"
+        stdDeviation="3"
+        flood-color="#94a3b8"
+        flood-opacity="0.35"
+      />
+    </filter>
+  </defs>
+  <!-- Icon: white rounded square with bars -->
+  <rect
+    x="0"
+    y="0"
+    width="40"
+    height="40"
+    rx="8"
+    fill="white"
+    filter="url(#logo-shadow)"
+  />
+  <rect x="8" y="14" width="5" height="12" rx="2.5" fill="url(#logo-bar1)" />
+  <rect x="16" y="12" width="6" height="16" rx="3" fill="url(#logo-bar2)" />
+  <rect x="26" y="10" width="5" height="18" rx="2.5" fill="url(#logo-bar3)" />
+  <path
+    d="M6 30 C6 22 12 14 22 12 C32 10 36 12 38 16"
+    fill="none"
+    stroke="url(#logo-orbit)"
+    stroke-width="1.5"
+    stroke-linecap="round"
+  />
+  <!-- Text: PortfoLens -->
+  <text
+    x="48"
+    y="28"
+    font-family="system-ui, -apple-system, sans-serif"
+    font-size="22"
+    font-weight="600"
+    fill="#1e293b"
+  >
+    PortfoLens
+  </text>
+</svg>
