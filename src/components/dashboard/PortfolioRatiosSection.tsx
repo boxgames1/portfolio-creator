@@ -88,7 +88,7 @@ export function PortfolioRatiosSection({
     : null;
 
   const riskLabel =
-    riskLevel === "high" ? "Alto" : riskLevel === "medium" ? "Medio" : "Bajo";
+    riskLevel === "high" ? "High" : riskLevel === "medium" ? "Medium" : "Low";
   const riskColor =
     riskLevel === "high"
       ? "text-amber-600 dark:text-amber-400"
@@ -101,21 +101,20 @@ export function PortfolioRatiosSection({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <BarChart3 className="h-4 w-4" />
-          Ratios y métricas de riesgo
+          Ratios and risk metrics
         </CardTitle>
         <CardDescription>
-          Indicadores de rendimiento y riesgo (las que requieren historial de
-          precios aparecen como N/A)
+          Performance and risk indicators (those requiring price history appear as N/A)
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <RatioRow
-            title="Ratio de Sharpe"
+            title="Sharpe Ratio"
             value={
               historyLoading ? (
                 <span className="text-muted-foreground text-base font-normal">
-                  Cargando…
+                  Loading…
                 </span>
               ) : typeof sharpe === "number" && !Number.isNaN(sharpe) ? (
                 sharpe.toFixed(2)
@@ -123,16 +122,16 @@ export function PortfolioRatiosSection({
                 <span className="text-muted-foreground">N/A</span>
               )
             }
-            explanation="Mide el rendimiento ajustado al riesgo: cuánto exceso de rentabilidad obtienes por cada unidad de volatilidad. Se calcula como (rentabilidad media − tipo libre de riesgo) / volatilidad. Requiere series históricas de rendimientos para calcular la volatilidad."
-            shortDescription="Rentabilidad ajustada al riesgo. Requiere historial de precios."
+            explanation="Measures risk-adjusted return: how much excess return you get per unit of volatility. Formula: (average return − risk-free rate) / volatility. Requires historical return series to compute."
+            shortDescription="Risk-adjusted return. Requires price history."
             icon={TrendingUp}
           />
           <RatioRow
-            title="Volatilidad"
+            title="Volatility"
             value={
               historyLoading ? (
                 <span className="text-muted-foreground text-base font-normal">
-                  Cargando…
+                  Loading…
                 </span>
               ) : typeof volatility === "number" &&
                 !Number.isNaN(volatility) ? (
@@ -141,37 +140,37 @@ export function PortfolioRatiosSection({
                 <span className="text-muted-foreground">N/A</span>
               )
             }
-            explanation="La volatilidad es la desviación típica de los rendimientos en el tiempo; indica cuánto puede variar el valor del portfolio. Una volatilidad alta implica más incertidumbre. Requiere precios históricos para su cálculo."
-            shortDescription="Variabilidad de los rendimientos. Requiere precios históricos."
+            explanation="Volatility is the standard deviation of returns over time; it indicates how much your portfolio value may fluctuate. Higher volatility means more uncertainty. Requires historical prices to compute."
+            shortDescription="Variability of returns. Requires historical prices."
             icon={BarChart3}
           />
           <RatioRow
-            title="Riesgo (perfil estimado)"
+            title="Risk (estimated profile)"
             value={<span className={riskColor}>{riskLabel}</span>}
-            explanation="Estimación a partir de tu asignación por tipo de activo: más peso en crypto o acciones suele implicar mayor riesgo; más peso en efectivo o metales preciosos, menor. No sustituye al análisis con datos históricos."
-            shortDescription="Estimado por la mezcla de activos (crypto/acciones = más riesgo)."
+            explanation="Estimated from your allocation by asset type: more weight in crypto or equities usually means higher risk; more in cash or precious metals, lower. Does not replace analysis with historical data."
+            shortDescription="Estimated from asset mix (crypto/stocks = higher risk)."
             icon={BarChart3}
           />
           <RatioRow
-            title="Concentración"
+            title="Concentration"
             value={
               totalValue > 0 && topType ? (
                 <>
                   {concentrationPct.toFixed(0)}%{" "}
                   <span className="text-sm font-normal text-muted-foreground">
-                    (máx. {topType.type.replace("_", " ")})
+                    (max. {topType.type.replace("_", " ")})
                   </span>
                 </>
               ) : (
                 <span className="text-muted-foreground">—</span>
               )
             }
-            explanation="Porcentaje del portfolio en la clase de activo con mayor peso. Una concentración muy alta (p. ej. >70%) reduce los beneficios de la diversificación."
-            shortDescription="Peso de la clase de activo con mayor valor. Más del 70% implica poca diversificación."
+            explanation="Share of your portfolio in the single largest asset class. Very high concentration (e.g. >70%) reduces diversification benefits."
+            shortDescription="Weight of the largest asset class. Over 70% implies low diversification."
             icon={Layers}
           />
           <RatioRow
-            title="Retorno (ROI)"
+            title="Return (ROI)"
             value={
               <span
                 className={
@@ -184,8 +183,8 @@ export function PortfolioRatiosSection({
                 {roi.toFixed(2)}%
               </span>
             }
-            explanation="Return on Investment: ganancia o pérdida porcentual respecto al coste total invertido. ROI = (valor actual − coste) / coste × 100."
-            shortDescription="Ganancia o pérdida % sobre el coste total invertido."
+            explanation="Return on Investment: percentage gain or loss relative to total cost invested. ROI = (current value − cost) / cost × 100."
+            shortDescription="Gain or loss % on total amount invested."
             icon={TrendingUp}
           />
         </div>

@@ -12,11 +12,11 @@ import { usePortfolioValue } from "@/hooks/usePortfolioValue";
 import { cn } from "@/lib/utils";
 
 const SUGGESTED_PROMPTS = [
-  "¿Cómo está diversificado mi portfolio?",
-  "¿Qué es el ratio de Sharpe y cómo se interpreta?",
-  "Explícame la diferencia entre ETF y fondos de inversión",
-  "¿Qué nivel de riesgo tiene mi asignación actual?",
-  "¿Cómo puedo reducir la volatilidad sin dejar de invertir?",
+  "How diversified is my portfolio?",
+  "What is the Sharpe ratio and how do I interpret it?",
+  "Explain the difference between ETFs and mutual funds",
+  "What risk level does my current allocation have?",
+  "How can I reduce volatility without stopping investing?",
 ];
 
 function buildWarrenContext(
@@ -88,7 +88,7 @@ export function WarrenAIPage() {
           {
             role: "assistant",
             content:
-              "No pude conectar con el asistente. Comprueba tu conexión o inténtalo más tarde.",
+              "Could not connect to the assistant. Check your connection or try again later.",
           },
         ]);
       },
@@ -101,7 +101,7 @@ export function WarrenAIPage() {
 
   return (
     <div className="flex h-[calc(100vh-2rem)] min-h-[400px] flex-col rounded-xl border bg-card shadow-sm md:h-[calc(100vh-4rem)]">
-      {/* Header estilo Warren AI / InvestPro */}
+      {/* Warren AI / InvestPro style header */}
       <div className="border-b bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-4 py-5 dark:from-primary/10 dark:via-primary/20 dark:to-primary/10">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 text-primary">
@@ -110,14 +110,13 @@ export function WarrenAIPage() {
           <div>
             <h1 className="text-xl font-bold tracking-tight">Warren AI</h1>
             <p className="text-sm text-muted-foreground">
-              Tu investigador financiero con IA · Análisis de portfolio y
-              conceptos de inversión
+              Your AI-powered financial researcher · Portfolio analysis and investing concepts
             </p>
           </div>
         </div>
       </div>
 
-      {/* Área de chat */}
+      {/* Chat area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
@@ -127,11 +126,10 @@ export function WarrenAIPage() {
               </div>
               <div>
                 <p className="font-medium text-foreground">
-                  Pregunta lo que quieras sobre tu portfolio o sobre inversión
+                  Ask anything about your portfolio or investing
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Warren AI conoce tu cartera y puede explicarte ratios,
-                  diversificación y más
+                  Warren AI knows your portfolio and can explain ratios, diversification, and more
                 </p>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
@@ -192,7 +190,7 @@ export function WarrenAIPage() {
         >
           <div className="flex gap-2">
             <Input
-              placeholder="Pregunta sobre tu portfolio o sobre inversión..."
+              placeholder="Ask about your portfolio or investing..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={chat.isPending}

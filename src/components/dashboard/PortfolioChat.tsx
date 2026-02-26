@@ -46,7 +46,7 @@ export function PortfolioChat({
           {
             role: "assistant",
             content:
-              "No pude obtener una respuesta. Comprueba la conexión o inténtalo más tarde.",
+              "Could not get a response. Check your connection or try again later.",
           },
         ]);
       },
@@ -78,8 +78,7 @@ export function PortfolioChat({
           <div className="rounded-lg border bg-muted/30 max-h-64 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Escribe una pregunta, por ejemplo: &quot;¿En qué tengo más
-                concentrado?&quot;
+                Type a question, e.g. &quot;Where am I most concentrated?&quot;
               </p>
             )}
             {messages.map((m, i) => (
@@ -97,7 +96,7 @@ export function PortfolioChat({
             ))}
             {chat.isPending && (
               <div className="text-sm rounded-lg px-3 py-2 bg-muted text-muted-foreground">
-                Pensando...
+                Thinking...
               </div>
             )}
             <div ref={bottomRef} />
@@ -110,7 +109,7 @@ export function PortfolioChat({
             }}
           >
             <Input
-              placeholder="Pregunta sobre tu portfolio..."
+              placeholder="Ask about your portfolio..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={disabled || chat.isPending || !portfolioContext}

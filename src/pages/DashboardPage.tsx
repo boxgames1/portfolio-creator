@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FileDown, Sparkles, TrendingUp } from "lucide-react";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
@@ -45,6 +45,13 @@ import { PerformanceInsights } from "@/components/dashboard/PerformanceInsights"
 import { PortfolioChat } from "@/components/dashboard/PortfolioChat";
 import { PortfolioRatiosSection } from "@/components/dashboard/PortfolioRatiosSection";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
+import {
+  getDemoAssets,
+  getDemoPortfolio,
+  getDemoHistoryResult,
+  getDemoSentiment,
+  getDemoSuggestion,
+} from "@/lib/demoPortfolio";
 
 function normalizeAIData(
   data: {
@@ -72,8 +79,20 @@ export function DashboardPage() {
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
   const [excludeRealEstate, setExcludeRealEstate] = useState(false);
-  const { data: assets, isLoading } = useAssets();
-  const { data: portfolio, isLoading: portfolioLoading } = usePortfolioValue();
+  const [demoMode, setDemoMode] = useState(() =>
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("portfolio-demo") === "true"
+      : false
+  );
+  const { data: assetsQueryData, isLoading: assetsLoading } = useAssets();
+  const { data: portfolioQueryData, isLoading: portfolioLoading } =
+    usePortfolioValue();
+  const demoAssets = useMemo(() => getDemoAssets(), []);
+  const demoPortfolio = useMemo(() => getDemoPortfolio(), []);
+  const assets = demoMode ? demoAssets : assetsQueryData ?? null;
+  const portfolio = demoMode ? demoPortfolio : portfolioQueryData ?? undefined;
+  const isLoading = demoMode ? false : assetsLoading;
+  const portfolioLoadingState = demoMode ? false : portfolioLoading;
   const aiSuggestions = useAISuggestions();
   const { data: latestSuggestion, isLoading: latestSuggestionLoading } =
     useLatestAISuggestion();
@@ -145,7 +164,9 @@ export function DashboardPage() {
             })) ?? [],
         },
         assets:
-          displayPortfolio.assetsWithPrices && filteredAssets
+          !demoMode &&
+          displayPortfolio.assetsWithPrices &&
+          filteredAssets
             ? filteredAssets
                 .map((a) => {
                   const pw = displayPortfolio!.assetsWithPrices!.find(
@@ -184,16 +205,28 @@ export function DashboardPage() {
       }
     : null;
 
+  const sentimentInputForApi =
+    demoMode || !sentimentInput || sentimentInput.portfolio.totalValue <= 0
+      ? { portfolio: { totalValue: 0, totalCost: 0, roi: 0, byType: [] as { type: string; value: number }[] } }
+      : sentimentInput;
+
   const { data: portfolioSentiment, isLoading: sentimentLoading } =
     usePortfolioSentiment(
-      sentimentInput ?? {
+      sentimentInputForApi ?? {
         portfolio: { totalValue: 0, totalCost: 0, roi: 0, byType: [] },
       }
     );
   const { data: portfolioHistory, isLoading: historyLoading } =
     usePortfolioHistory();
+  const demoHistory = useMemo(() => getDemoHistoryResult(), []);
+  const demoSentiment = useMemo(() => getDemoSentiment(), []);
+  const demoSuggestion = useMemo(() => getDemoSuggestion(), []);
+  const displaySentiment = demoMode ? demoSentiment : portfolioSentiment;
+  const displaySentimentLoading = demoMode ? false : sentimentLoading;
+  const displaySuggestion = demoMode ? demoSuggestion : (latestSuggestion ?? null);
+  const displaySuggestionLoading = demoMode ? false : latestSuggestionLoading;
 
-  if (isLoading || portfolioLoading) {
+  if (isLoading || portfolioLoadingState) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-32 w-full" />
@@ -267,7 +300,8 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex flex-col gap-4 border-b border-border/40 bg-background/95 px-4 py-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80 md:-mx-8 md:-mt-8 md:px-8 md:py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
@@ -282,7 +316,8 @@ export function DashboardPage() {
             onClick={() =>
               assets && portfolio && exportPortfolioToPdf(assets, portfolio)
             }
-            disabled={!assets || assets.length === 0}
+            disabled={!assets || assets.length === 0 || demoMode}
+            title={demoMode ? "Export disabled in demo mode" : undefined}
           >
             <FileDown className="mr-2 h-4 w-4" />
             Export PDF
@@ -296,8 +331,31 @@ export function DashboardPage() {
             />
             Without real estate
           </label>
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              checked={demoMode}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setDemoMode(on);
+                try {
+                  localStorage.setItem("portfolio-demo", on ? "true" : "false");
+                } catch {}
+              }}
+              className="rounded border-input"
+            />
+            Portfolio demo
+          </label>
         </div>
       </div>
+      </div>
+
+      {demoMode && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          You are viewing <strong>Portfolio demo</strong> with sample data. Turn
+          it off in the options above to see your real portfolio.
+        </div>
+      )}
 
       {/* Summary banner */}
       {totalWorth > 0 && (
@@ -438,15 +496,19 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {/* Ratios y métricas de riesgo */}
+      {/* Ratios and risk metrics */}
       {totalWorth > 0 && displayPortfolio?.byType && (
         <PortfolioRatiosSection
           byType={displayPortfolio.byType}
           totalValue={totalWorth}
           roi={roi}
-          volatility={portfolioHistory?.volatility}
-          sharpeRatio={portfolioHistory?.sharpeRatio}
-          historyLoading={historyLoading}
+          volatility={
+            demoMode ? demoHistory.volatility : portfolioHistory?.volatility
+          }
+          sharpeRatio={
+            demoMode ? demoHistory.sharpeRatio : portfolioHistory?.sharpeRatio
+          }
+          historyLoading={demoMode ? false : historyLoading}
         />
       )}
 
@@ -458,7 +520,7 @@ export function DashboardPage() {
               AI Portfolio Rating
             </CardTitle>
             <CardDescription>
-              {latestSuggestion
+              {displaySuggestion
                 ? "Your most recent portfolio analysis"
                 : "Get AI-powered insights and suggestions"}
             </CardDescription>
@@ -467,22 +529,23 @@ export function DashboardPage() {
             variant="outline"
             size="sm"
             onClick={handleGetAIRating}
-            disabled={aiSuggestions.isPending || totalWorth === 0}
+            disabled={aiSuggestions.isPending || totalWorth === 0 || demoMode}
+            title={demoMode ? "AI rating disabled in demo mode" : undefined}
             className="shrink-0"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             {aiSuggestions.isPending
               ? "Analyzing..."
-              : latestSuggestion
+              : displaySuggestion
               ? "Refresh AI Portfolio Rating"
               : "Get AI Rating & Suggestions"}
           </Button>
         </CardHeader>
-        {latestSuggestionLoading ? (
+        {displaySuggestionLoading ? (
           <CardContent>
             <Skeleton className="h-20 w-full" />
           </CardContent>
-        ) : latestSuggestion ? (
+        ) : displaySuggestion ? (
           <CardContent
             className="cursor-pointer pt-0 transition-colors hover:bg-muted/30  rounded-b-lg px-6 pb-6"
             onClick={() => setAiModalOpen(true)}
@@ -490,12 +553,12 @@ export function DashboardPage() {
             <div className="space-y-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold">
-                  {latestSuggestion.rating}/10
+                  {displaySuggestion.rating}/10
                 </span>
                 <span className="text-sm text-muted-foreground">rating</span>
               </div>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                {latestSuggestion.suggestions.slice(0, 2).map((s, i) => (
+                {displaySuggestion.suggestions.slice(0, 2).map((s, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="shrink-0 mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
                     <span>{s.text}</span>
@@ -554,7 +617,7 @@ export function DashboardPage() {
         disabled={!assets?.length}
       />
 
-      {!sentimentLoading && portfolioSentiment && totalWorth > 0 && (
+      {!displaySentimentLoading && displaySentiment && totalWorth > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -563,7 +626,8 @@ export function DashboardPage() {
             </CardTitle>
             <CardDescription>
               Fear & Greed – inferred from your allocation across all assets (0
-              = Extreme Fear, 100 = Extreme Greed)
+              = Extreme Fear, 100 = Extreme Greed).{" "}
+              {demoMode && "(Demo)"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -584,19 +648,19 @@ export function DashboardPage() {
                 className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-bold"
                 style={{
                   backgroundColor: `${getSentimentColor(
-                    portfolioSentiment.value
+                    displaySentiment.value
                   )}20`,
-                  color: getSentimentColor(portfolioSentiment.value),
+                  color: getSentimentColor(displaySentiment.value),
                 }}
               >
-                {portfolioSentiment.value}
+                {displaySentiment.value}
               </div>
               <div className="flex-1">
                 <p className="font-medium">
-                  {getSentimentLabel(portfolioSentiment.value)}
+                  {getSentimentLabel(displaySentiment.value)}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {portfolioSentiment.explanation}
+                  {displaySentiment.explanation}
                 </p>
               </div>
             </div>
@@ -739,7 +803,7 @@ export function DashboardPage() {
           </DialogHeader>
           {(() => {
             const data = normalizeAIData(
-              aiSuggestions.data ?? latestSuggestion ?? null
+              demoMode ? displaySuggestion : (aiSuggestions.data ?? latestSuggestion ?? null)
             );
             if (!data) return null;
             const sortedSuggestions = [...data.suggestions].sort((a, b) => {
