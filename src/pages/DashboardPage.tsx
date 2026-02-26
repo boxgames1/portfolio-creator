@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, TrendingUp } from "lucide-react";
+import { FileDown, Sparkles, TrendingUp } from "lucide-react";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/hooks/usePortfolioSentiment";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import { exportPortfolioToPdf } from "@/lib/exportPortfolioPdf";
 import { toast } from "sonner";
 import { GlossarySection } from "@/components/GlossaryTooltip";
 import type { AISuggestionItem } from "@/types";
@@ -276,6 +277,17 @@ export function DashboardPage() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              assets && portfolio && exportPortfolioToPdf(assets, portfolio)
+            }
+            disabled={!assets || assets.length === 0}
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            Export PDF
+          </Button>
           <label className="flex items-center gap-2 cursor-pointer text-sm">
             <input
               type="checkbox"

@@ -35,6 +35,8 @@ export interface StockMetadata {
   ticker?: string;
   isin?: string;
   exchange?: string;
+  /** Annual management fee (TER) as percentage, e.g. 0.07 for 0.07% */
+  annual_management_fee?: number;
 }
 
 export type StakingType = "flex" | "fixed";

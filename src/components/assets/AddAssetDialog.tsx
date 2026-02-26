@@ -64,6 +64,7 @@ const schema = z.object({
   ticker: z.string().optional(),
   isin: z.string().optional(),
   exchange: z.string().optional(),
+  annual_management_fee: z.coerce.number().min(0).max(10).optional(),
   symbol: z.string().optional(),
   coingecko_id: z.string().optional(),
   staking_enabled: z.boolean().optional(),
@@ -194,6 +195,13 @@ export function AddAssetDialog({
       if (data.ticker) meta.ticker = data.ticker;
       if (data.isin) meta.isin = data.isin;
       if (data.exchange) meta.exchange = data.exchange;
+      if (
+        (data.asset_type === "etf" || data.asset_type === "fund") &&
+        data.annual_management_fee != null &&
+        data.annual_management_fee > 0
+      ) {
+        meta.annual_management_fee = data.annual_management_fee;
+      }
     } else if (data.asset_type === "crypto") {
       if (data.symbol) meta.symbol = data.symbol;
       if (data.coingecko_id) meta.coingecko_id = data.coingecko_id;
@@ -368,6 +376,20 @@ export function AddAssetDialog({
                       placeholder="NASDAQ"
                     />
                   </div>
+                  {(assetType === "etf" || assetType === "fund") && (
+                    <div className="space-y-2">
+                      <Label>Annual management fee (TER %)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 0.07"
+                        {...form.register("annual_management_fee")}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Total Expense Ratio as percentage (e.g. 0.07 for 0.07%)
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>

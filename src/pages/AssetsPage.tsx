@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { PlusCircle, RefreshCw } from "lucide-react";
+import { FileDown, PlusCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -17,6 +17,7 @@ import { AddAssetDialog } from "@/components/assets/AddAssetDialog";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
 import { useRefreshPrices } from "@/hooks/useRefreshPrices";
+import { exportPortfolioToPdf } from "@/lib/exportPortfolioPdf";
 
 type SortOption = "investment-asc" | "investment-desc" | "roi-asc" | "roi-desc";
 
@@ -98,6 +99,17 @@ export function AssetsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              assets && portfolio && exportPortfolioToPdf(assets, portfolio)
+            }
+            disabled={!assets || assets.length === 0}
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            Export PDF
+          </Button>
           <Button
             variant="outline"
             onClick={() => assets && refreshPrices.mutate(assets)}

@@ -257,6 +257,17 @@ serve(async (req) => {
         isCrypto || isPreciousMetals
           ? r.identifier.trim().toLowerCase()
           : r.identifier;
+
+      // When forceRefresh: invalidate cache first so we only serve fresh data
+      if (forceRefresh) {
+        await supabase
+          .from("price_cache")
+          .delete()
+          .eq("identifier", cacheIdentifier)
+          .eq("asset_type", r.asset_type)
+          .eq("currency", currency);
+      }
+
       let cached: { price: number; source: string | null } | null = null;
       if (!forceRefresh) {
         const { data } = await supabase

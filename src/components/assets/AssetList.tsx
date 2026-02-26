@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { usePortfolioValue } from "@/hooks/usePortfolioValue";
 import { useDeleteAsset } from "@/hooks/useAssets";
+import { useRefreshPrices } from "@/hooks/useRefreshPrices";
 import { formatCurrency } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import type { Asset } from "@/types";
@@ -22,8 +23,12 @@ interface AssetListProps {
 
 export function AssetList({ assets }: AssetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [refreshingPriceId, setRefreshingPriceId] = useState<string | null>(
+    null
+  );
   const { data: portfolio } = usePortfolioValue();
   const deleteAsset = useDeleteAsset();
+  const refreshPrices = useRefreshPrices();
 
   const getAssetPriceInfo = (asset: Asset) => {
     const info = portfolio?.assetsWithPrices.find((p) => p.id === asset.id);
@@ -37,6 +42,14 @@ export function AssetList({ assets }: AssetListProps) {
     } catch {
       toast.error("Failed to delete asset");
     }
+  };
+
+  const handleRefreshPrice = (asset: Asset) => {
+    if (asset.asset_type === "fiat") return;
+    setRefreshingPriceId(asset.id);
+    refreshPrices.mutate([asset], {
+      onSettled: () => setRefreshingPriceId(null),
+    });
   };
 
   if (assets.length === 0) {
@@ -95,6 +108,12 @@ export function AssetList({ assets }: AssetListProps) {
                         {[meta?.ticker as string, meta?.isin as string]
                           .filter(Boolean)
                           .join(" · ")}
+                        {(asset.asset_type === "etf" ||
+                          asset.asset_type === "fund") &&
+                          typeof meta?.annual_management_fee === "number" &&
+                          meta.annual_management_fee > 0 && (
+                            <> · TER {meta.annual_management_fee}%</>
+                          )}
                       </span>
                     )}
                   <span className="text-xs text-muted-foreground capitalize">
@@ -233,6 +252,21 @@ export function AssetList({ assets }: AssetListProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {asset.asset_type !== "fiat" && (
+                      <DropdownMenuItem
+                        onClick={() => handleRefreshPrice(asset)}
+                        disabled={refreshingPriceId === asset.id}
+                      >
+                        <RefreshCw
+                          className={`mr-2 h-4 w-4 ${
+                            refreshingPriceId === asset.id ? "animate-spin" : ""
+                          }`}
+                        />
+                        {refreshingPriceId === asset.id
+                          ? "Refreshing..."
+                          : "Refresh price"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => setEditingId(asset.id)}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Edit
