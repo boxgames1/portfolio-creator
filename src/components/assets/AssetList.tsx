@@ -48,6 +48,12 @@ export function AssetList({ assets }: AssetListProps) {
     if (asset.asset_type === "fiat") return;
     setRefreshingPriceId(asset.id);
     refreshPrices.mutate([asset], {
+      onSuccess: () => {
+        toast.success(`Price refreshed for ${asset.name}`);
+      },
+      onError: () => {
+        toast.error("Failed to refresh price");
+      },
       onSettled: () => setRefreshingPriceId(null),
     });
   };

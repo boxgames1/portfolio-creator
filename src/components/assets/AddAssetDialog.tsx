@@ -32,6 +32,7 @@ const assetTypes: { value: AssetType; label: string }[] = [
   { value: "mineral", label: "Mineral" },
   { value: "precious_metals", label: "Gold & Silver" },
   { value: "real_estate", label: "Real Estate" },
+  { value: "private_equity", label: "Private Equity" },
   { value: "other", label: "Other" },
 ];
 
@@ -53,6 +54,7 @@ const schema = z.object({
     "mineral",
     "precious_metals",
     "real_estate",
+    "private_equity",
     "other",
   ]),
   name: z.string().min(1, "Name is required"),
@@ -72,6 +74,7 @@ const schema = z.object({
   staking_apy: z.coerce.number().optional(),
   staking_end_date: z.string().optional(),
   sqm: z.coerce.number().optional(),
+  amenities: z.string().optional(),
   property_type: z
     .enum(["apartment", "house", "land", "commercial"])
     .optional(),
@@ -153,6 +156,7 @@ export function AddAssetDialog({
         staking_apy: (meta?.staking_apy as number) ?? 0,
         staking_end_date: (meta?.staking_end_date as string) ?? "",
         sqm: (meta?.sqm as number) ?? 0,
+        amenities: (meta?.amenities as string) ?? "",
         property_type:
           (meta?.property_type as
             | "apartment"
@@ -211,6 +215,7 @@ export function AddAssetDialog({
       if (data.staking_end_date) meta.staking_end_date = data.staking_end_date;
     } else if (data.asset_type === "real_estate") {
       if (data.sqm) meta.sqm = data.sqm;
+      if (data.amenities) meta.amenities = data.amenities;
       if (data.property_type) meta.property_type = data.property_type;
       meta.is_rented = data.is_rented ?? false;
       if (data.monthly_rent) meta.monthly_rent = data.monthly_rent;
@@ -488,6 +493,14 @@ export function AddAssetDialog({
                 <div className="space-y-2">
                   <Label>Square meters</Label>
                   <Input type="number" step="0.01" {...form.register("sqm")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Amenities</Label>
+                  <Input
+                    type="text"
+                    {...form.register("amenities")}
+                    placeholder="e.g. Swimming pool, Gym, Parking"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Property Type</Label>

@@ -56,6 +56,7 @@ function getAssetDetails(asset: Asset, meta: Record<string, unknown>): string {
     if (meta?.property_type)
       parts.push(`Type: ${String(meta.property_type).replace("_", " ")}`);
     if (meta?.sqm) parts.push(`Sqm: ${meta.sqm}`);
+    if (meta?.amenities) parts.push(`Amenities: ${meta.amenities}`);
     if (meta?.location) parts.push(`Location: ${meta.location}`);
     if (meta?.is_rented) parts.push(`Rented: ${meta.is_rented ? "Yes" : "No"}`);
     if (typeof meta?.monthly_rent === "number")

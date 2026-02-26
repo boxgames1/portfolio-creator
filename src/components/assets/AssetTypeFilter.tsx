@@ -19,6 +19,7 @@ export const ASSET_TYPE_OPTIONS: { value: AssetType | "all"; label: string }[] =
     { value: "mineral", label: "Mineral" },
     { value: "precious_metals", label: "Gold & Silver" },
     { value: "real_estate", label: "Real Estate" },
+    { value: "private_equity", label: "Private Equity" },
     { value: "other", label: "Other" },
   ];
 

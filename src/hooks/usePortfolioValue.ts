@@ -48,7 +48,9 @@ export function usePortfolioValue() {
       }
 
       const priceRequests = assets
-        .filter((a) => a.asset_type !== "fiat")
+        .filter(
+          (a) => a.asset_type !== "fiat" && a.asset_type !== "private_equity"
+        )
         .map((a) => {
           const meta = a.metadata as Record<string, unknown>;
           let identifier = "";

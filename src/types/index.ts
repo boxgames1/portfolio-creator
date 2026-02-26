@@ -29,6 +29,7 @@ export type AssetType =
   | "precious_metals"
   | "real_estate"
   | "fiat"
+  | "private_equity"
   | "other";
 
 export interface StockMetadata {
@@ -54,6 +55,7 @@ export type InterestRateType = "fixed" | "variable" | "mixed";
 
 export interface RealEstateMetadata {
   sqm?: number;
+  amenities?: string;
   property_type?: "apartment" | "house" | "land" | "commercial";
   is_rented?: boolean;
   monthly_rent?: number;

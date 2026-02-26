@@ -467,6 +467,8 @@ serve(async (req) => {
             source = "yahoo";
             if (currency === "eur") {
               if (yahoo.currency === "GBP") price = price * gbpToEurRate;
+              else if (yahoo.currency === "CHF") price = price * chfToEurRate;
+              else if (yahoo.currency === "CAD") price = price * cadToEurRate;
               else if (yahoo.currency === "USD") price = price * usdToEurRate;
             }
           }
@@ -534,7 +536,9 @@ serve(async (req) => {
                 meta
               )}. Purchase price was ${
                 asset.purchase_price
-              }. Reply with ONLY a number, no explanation.`;
+              }. Reply with ONLY a number, no explanation. Analyze the property, the growth of the area and the market to make a fair estimate. 
+               Compare the property to similar properties in the area to make a fair estimate and check real estate portals if needed.
+                `;
               const openaiRes = await fetch(
                 "https://api.openai.com/v1/chat/completions",
                 {

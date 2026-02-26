@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileDown, PlusCircle, RefreshCw } from "lucide-react";
+import { FileDown, PlusCircle, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -33,6 +34,7 @@ export function AssetsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
   const [sortBy, setSortBy] = useState<SortOption>("investment-desc");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (searchParams.get("add") === "1") {
@@ -42,14 +44,28 @@ export function AssetsPage() {
   const { data: assets, isLoading } = useAssets();
   const { data: portfolio, isLoading: portfolioLoading } = usePortfolioValue();
   const refreshPrices = useRefreshPrices();
-  console.log("=========================");
-  console.log("refreshPrices");
-  console.log(refreshPrices);
-  console.log("=========================");
-  const filteredAssets =
+
+  const filteredByType =
     assets?.filter(
       (a) => typeFilter === "all" || a.asset_type === typeFilter
     ) ?? [];
+
+  const filteredAssets = useMemo(() => {
+    if (!searchQuery.trim()) return filteredByType;
+    const q = searchQuery.trim().toLowerCase();
+    return filteredByType.filter((a) => {
+      if (a.name.toLowerCase().includes(q)) return true;
+      const meta = a.metadata as Record<string, unknown>;
+      if (meta?.ticker && String(meta.ticker).toLowerCase().includes(q))
+        return true;
+      if (meta?.isin && String(meta.isin).toLowerCase().includes(q))
+        return true;
+      if (meta?.symbol && String(meta.symbol).toLowerCase().includes(q))
+        return true;
+      if (a.notes?.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [filteredByType, searchQuery]);
 
   const sortedAssets = useMemo(() => {
     const arr = [...filteredAssets];
@@ -83,6 +99,16 @@ export function AssetsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              placeholder="Search by name, ticker, ISIN..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
           <Select
             value={sortBy}
@@ -117,7 +143,10 @@ export function AssetsPage() {
               !assets ||
               assets.length === 0 ||
               refreshPrices.isPending ||
-              assets.every((a) => a.asset_type === "fiat")
+              assets.every(
+                (a) =>
+                  a.asset_type === "fiat" || a.asset_type === "private_equity"
+              )
             }
           >
             <RefreshCw

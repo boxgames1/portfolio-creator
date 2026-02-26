@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, PlusCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, Wallet, PlusCircle, LogOut, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
@@ -9,6 +9,7 @@ import { Moon, Sun } from "lucide-react";
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/assets", label: "Assets", icon: Wallet },
+  { path: "/warren-ai", label: "Warren AI", icon: Bot },
 ];
 
 export function Layout() {

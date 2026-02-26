@@ -26,12 +26,25 @@ import {
   getSentimentLabel,
   getSentimentColor,
 } from "@/hooks/usePortfolioSentiment";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "@/lib/utils";
 import { exportPortfolioToPdf } from "@/lib/exportPortfolioPdf";
 import { toast } from "sonner";
 import { GlossarySection } from "@/components/GlossaryTooltip";
 import type { AISuggestionItem } from "@/types";
+import {
+  buildRiskAlerts,
+  buildDiversificationInsights,
+} from "@/lib/portfolioAnalysis";
+import { MetricCard } from "@/components/dashboard/MetricCard";
+import { AllocationDonutChart } from "@/components/dashboard/AllocationDonutChart";
+import { AssetPerformanceCard } from "@/components/dashboard/AssetPerformanceCard";
+import { DiversificationAnalysis } from "@/components/dashboard/DiversificationAnalysis";
+import { RiskAlerts } from "@/components/dashboard/RiskAlerts";
+import { CategoryDistribution } from "@/components/dashboard/CategoryDistribution";
+import { PerformanceInsights } from "@/components/dashboard/PerformanceInsights";
+import { PortfolioChat } from "@/components/dashboard/PortfolioChat";
+import { PortfolioRatiosSection } from "@/components/dashboard/PortfolioRatiosSection";
+import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
 
 function normalizeAIData(
   data: {
@@ -54,15 +67,6 @@ function normalizeAIData(
     suggestions,
   };
 }
-
-const COLORS = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-];
 
 export function DashboardPage() {
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -186,6 +190,8 @@ export function DashboardPage() {
         portfolio: { totalValue: 0, totalCost: 0, roi: 0, byType: [] },
       }
     );
+  const { data: portfolioHistory, isLoading: historyLoading } =
+    usePortfolioHistory();
 
   if (isLoading || portfolioLoading) {
     return (
@@ -259,13 +265,6 @@ export function DashboardPage() {
     );
   };
 
-  const chartData =
-    displayPortfolio?.byType?.map((item, i) => ({
-      name: item.type,
-      value: item.value,
-      color: COLORS[i % COLORS.length],
-    })) ?? [];
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -300,53 +299,156 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Portfolio Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{formatCurrency(totalWorth)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Cost
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{formatCurrency(totalCost)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              ROI
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p
-              className={`text-3xl font-bold ${
-                roi >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {roi >= 0 ? "+" : ""}
-              {roi.toFixed(1)}%
-            </p>
-            <p
-              className={`mt-1 text-sm ${
-                totalWorth >= totalCost ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {totalWorth >= totalCost ? "+" : ""}
-              {formatCurrency(totalWorth - totalCost)}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Summary banner */}
+      {totalWorth > 0 && (
+        <div
+          className={`rounded-xl p-6 ${
+            roi >= 10
+              ? "bg-green-50/80 dark:bg-green-950/20 border border-green-200/50 dark:border-green-900/30"
+              : roi >= 0
+              ? "bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30"
+              : "bg-red-50/80 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30"
+          }`}
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-2 ${
+                  roi >= 10
+                    ? "bg-green-200/80 dark:bg-green-900/40 text-green-800 dark:text-green-300"
+                    : roi >= 0
+                    ? "bg-amber-200/80 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"
+                    : "bg-red-200/80 dark:bg-red-900/40 text-red-800 dark:text-red-300"
+                }`}
+              >
+                {roi >= 10 ? "Strong" : roi >= 0 ? "Moderate" : "Negative"}{" "}
+                growth
+              </span>
+              <p className="text-base text-muted-foreground">
+                {roi >= 10
+                  ? "Your portfolio is performing well."
+                  : roi >= 0
+                  ? "Consider reviewing underperformers."
+                  : "Review your allocation and consider rebalancing."}
+              </p>
+            </div>
+            <div className="flex gap-8">
+              <div className="text-center">
+                <div className="text-2xl font-bold">
+                  {formatCurrency(totalCost)}
+                </div>
+                <div className="text-xs text-muted-foreground">Invested</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">
+                  {formatCurrency(totalWorth)}
+                </div>
+                <div className="text-xs text-muted-foreground">Current</div>
+              </div>
+              <div className="text-center">
+                <div
+                  className={`text-2xl font-bold ${
+                    roi >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {roi >= 0 ? "+" : ""}
+                  {roi.toFixed(2)}%
+                </div>
+                <div className="text-xs text-muted-foreground">Returns</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Metric cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Total Invested"
+          value={formatCurrency(totalCost)}
+          subtext="Principal amount"
+          icon="💰"
+        />
+        <MetricCard
+          label="Current Value"
+          value={formatCurrency(totalWorth)}
+          subtext={`${roi >= 0 ? "+" : ""}${roi.toFixed(1)}% overall`}
+          icon="📈"
+          subtextClassName={roi >= 0 ? "text-green-600" : "text-red-600"}
+        />
+        <MetricCard
+          label="ROI"
+          value={`${roi >= 0 ? "+" : ""}${roi.toFixed(1)}%`}
+          subtext={`${totalWorth >= totalCost ? "+" : ""}${formatCurrency(
+            totalWorth - totalCost
+          )}`}
+          icon="🎯"
+          subtextClassName={
+            totalWorth >= totalCost ? "text-green-600" : "text-red-600"
+          }
+        />
+        <MetricCard
+          label="Portfolio Size"
+          value={`${filteredAssets.length} ${
+            filteredAssets.length === 1 ? "asset" : "assets"
+          }`}
+          subtext={
+            filteredAssets.length >= 5
+              ? "Good diversification"
+              : "Add more to diversify"
+          }
+          icon="📊"
+        />
       </div>
+
+      {/* Performance Insights */}
+      {totalWorth > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Insights</CardTitle>
+            <CardDescription>Key metrics and highlights</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PerformanceInsights
+              roi={roi}
+              totalCost={totalCost}
+              totalValue={totalWorth}
+              topPerformer={
+                displayPortfolio?.assetsWithPrices && filteredAssets.length > 0
+                  ? (() => {
+                      const withRoi = filteredAssets
+                        .map((a) => {
+                          const pw = displayPortfolio.assetsWithPrices.find(
+                            (p) => p.id === a.id
+                          );
+                          return {
+                            name: a.name,
+                            roi: pw?.roi ?? 0,
+                          };
+                        })
+                        .filter((x) => x.roi > 0);
+                      const top = withRoi.sort((a, b) => b.roi - a.roi)[0];
+                      return top ? { name: top.name, roi: top.roi } : undefined;
+                    })()
+                  : undefined
+              }
+              assetCount={filteredAssets.length}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ratios y métricas de riesgo */}
+      {totalWorth > 0 && displayPortfolio?.byType && (
+        <PortfolioRatiosSection
+          byType={displayPortfolio.byType}
+          totalValue={totalWorth}
+          roi={roi}
+          volatility={portfolioHistory?.volatility}
+          sharpeRatio={portfolioHistory?.sharpeRatio}
+          historyLoading={historyLoading}
+        />
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -415,6 +517,43 @@ export function DashboardPage() {
         )}
       </Card>
 
+      {/* Portfolio chat */}
+      <PortfolioChat
+        portfolioContext={
+          displayPortfolio && totalWorth >= 0
+            ? {
+                totalValue: totalWorth,
+                totalCost,
+                roi,
+                byType: displayPortfolio.byType ?? [],
+                assets:
+                  displayPortfolio.assetsWithPrices && assets
+                    ? assets
+                        .filter((a) => a.asset_type !== "fiat")
+                        .map((a) => {
+                          const pw = displayPortfolio!.assetsWithPrices!.find(
+                            (p) => p.id === a.id
+                          );
+                          const cost =
+                            pw?.costInEur ?? a.purchase_price * a.quantity;
+                          const currentValue =
+                            pw?.currentValue ?? a.purchase_price * a.quantity;
+                          const roiA = pw?.roi ?? 0;
+                          return {
+                            name: a.name,
+                            asset_type: a.asset_type,
+                            cost,
+                            currentValue,
+                            roi: roiA,
+                          };
+                        })
+                    : undefined,
+              }
+            : null
+        }
+        disabled={!assets?.length}
+      />
+
       {!sentimentLoading && portfolioSentiment && totalWorth > 0 && (
         <Card>
           <CardHeader>
@@ -465,41 +604,123 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {chartData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Asset Allocation</CardTitle>
-            <CardDescription>Distribution by asset type</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Allocation & Category Distribution */}
+      {displayPortfolio?.byType && displayPortfolio.byType.length > 0 && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Asset Allocation</CardTitle>
+              <CardDescription>
+                Distribution across asset classes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AllocationDonutChart
+                byType={displayPortfolio.byType}
+                totalValue={totalWorth}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Category Distribution</CardTitle>
+              <CardDescription>Asset types in your portfolio</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CategoryDistribution
+                byType={displayPortfolio?.byType ?? []}
+                totalValue={totalWorth}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
+
+      {/* Diversification Analysis */}
+      {totalWorth > 0 &&
+        displayPortfolio?.byType &&
+        displayPortfolio.byType.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Diversification Analysis</CardTitle>
+              <CardDescription>
+                Portfolio composition and risk indicators
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DiversificationAnalysis
+                insights={buildDiversificationInsights(
+                  displayPortfolio.byType,
+                  totalWorth,
+                  filteredAssets.length
+                )}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+      {/* Risk Alerts */}
+      {totalWorth > 0 && displayPortfolio?.byType && (
+        <RiskAlerts
+          alerts={buildRiskAlerts(
+            displayPortfolio.byType.map((t) => ({
+              type: t.type,
+              value: t.value,
+            })),
+            totalWorth
+          )}
+        />
+      )}
+
+      {/* Individual Asset Performance */}
+      {filteredAssets.length > 0 &&
+        displayPortfolio?.assetsWithPrices &&
+        totalWorth > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Asset Performance</CardTitle>
+              <CardDescription>Individual asset returns</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {[...filteredAssets]
+                  .filter((a) => a.asset_type !== "fiat")
+                  .map((asset) => {
+                    const pw = displayPortfolio.assetsWithPrices.find(
+                      (p) => p.id === asset.id
+                    );
+                    return { asset, roi: pw?.roi ?? 0 };
+                  })
+                  .sort((a, b) => b.roi - a.roi)
+                  .slice(0, 8)
+                  .map(({ asset, roi }) => {
+                    const pw = displayPortfolio.assetsWithPrices.find(
+                      (p) => p.id === asset.id
+                    );
+                    const cost =
+                      pw?.costInEur ?? asset.purchase_price * asset.quantity;
+                    const currentValue =
+                      pw?.currentValue ?? asset.purchase_price * asset.quantity;
+                    return (
+                      <AssetPerformanceCard
+                        key={asset.id}
+                        asset={asset}
+                        cost={cost}
+                        currentValue={currentValue}
+                        roi={roi}
+                      />
+                    );
+                  })}
+              </div>
+              {filteredAssets.filter((a) => a.asset_type !== "fiat").length >
+                8 && (
+                <p className="text-sm text-muted-foreground mt-4">
+                  Showing top 8 assets. View all on the Assets page.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       {(!filteredAssets || filteredAssets.length === 0) && (
         <Card>
