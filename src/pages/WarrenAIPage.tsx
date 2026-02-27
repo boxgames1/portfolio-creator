@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Bot, Send, Sparkles, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { usePortfolioChat,
+import {
+  usePortfolioChat,
   type ChatMessage,
   type PortfolioChatContext,
 } from "@/hooks/usePortfolioChat";
@@ -10,6 +11,7 @@ import { useAssets } from "@/hooks/useAssets";
 import { usePortfolioValue } from "@/hooks/usePortfolioValue";
 import { isInsufficientTokensError } from "@/lib/tokenErrors";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const SUGGESTED_PROMPTS = [
   "How diversified is my portfolio?",
@@ -89,7 +91,8 @@ export function WarrenAIPage() {
             ...prev,
             {
               role: "assistant",
-              content: "You don't have enough tokens. Go to Account to buy more.",
+              content:
+                "You don't have enough tokens. Go to Account to buy more.",
             },
           ]);
         } else {
@@ -121,7 +124,8 @@ export function WarrenAIPage() {
           <div>
             <h1 className="text-xl font-bold tracking-tight">Warren AI</h1>
             <p className="text-sm text-muted-foreground">
-              Your AI-powered financial researcher · Portfolio analysis and investing concepts
+              Your AI-powered financial researcher · Portfolio analysis and
+              investing concepts
             </p>
           </div>
         </div>
@@ -140,7 +144,8 @@ export function WarrenAIPage() {
                   Ask anything about your portfolio or investing
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Warren AI knows your portfolio and can explain ratios, diversification, and more
+                  Warren AI knows your portfolio and can explain ratios,
+                  diversification, and more
                 </p>
               </div>
               <div className="flex flex-wrap justify-center gap-2">

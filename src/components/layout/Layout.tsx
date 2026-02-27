@@ -1,6 +1,13 @@
 import { Outlet } from "react-router-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, PlusCircle, LogOut, Bot } from "lucide-react";
+import {
+  LayoutDashboard,
+  Wallet,
+  PlusCircle,
+  LogOut,
+  Bot,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
