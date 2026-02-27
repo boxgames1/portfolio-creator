@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { isAdmin } from "../_shared/roles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,15 +40,12 @@ serve(async (req) => {
     const token = authHeader.replace(/^Bearer\s+/i, "");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
     const appUrl = Deno.env.get("APP_URL") || "http://localhost:5173";
 
-    if (!stripeSecretKey) {
-      return new Response(JSON.stringify({ error: "Stripe not configured" }), {
-        status: 503,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const body = (await req.json()) as { pack?: string; testMode?: boolean };
+    const envTestMode =
+      Deno.env.get("STRIPE_TEST_MODE")?.toLowerCase() === "true" ||
+      Deno.env.get("STRIPE_TEST_MODE") === "1";
 
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const {
@@ -70,7 +68,29 @@ serve(async (req) => {
       });
     }
 
-    const body = (await req.json()) as { pack?: string };
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const userIsAdmin = await isAdmin(supabaseAdmin, user.id);
+    const useTestMode =
+      envTestMode || (body.testMode === true && userIsAdmin);
+
+    const rawTestKey = Deno.env.get("STRIPE_SECRET_KEY_TEST");
+    const rawLiveKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const sanitize = (k: string | undefined) =>
+      k?.replace(/%+$/, "").replace(/\s+$/, "").trim() || undefined;
+    const stripeSecretKeyResolved = useTestMode
+      ? sanitize(rawTestKey) || sanitize(rawLiveKey)
+      : sanitize(rawLiveKey);
+
+    if (!stripeSecretKeyResolved) {
+      return new Response(JSON.stringify({ error: "Stripe not configured" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const packKey = body.pack ?? "100";
     const pack = TOKEN_PACKS[packKey];
     if (!pack) {
@@ -83,7 +103,7 @@ serve(async (req) => {
       );
     }
 
-    const stripe = new Stripe(stripeSecretKey, {
+    const stripe = new Stripe(stripeSecretKeyResolved, {
       apiVersion: "2023-10-16",
       httpClient: Stripe.createFetchHttpClient(),
     });

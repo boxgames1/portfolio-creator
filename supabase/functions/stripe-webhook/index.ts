@@ -21,11 +21,26 @@ serve(async (req) => {
     });
   }
 
-  const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const useTestMode =
+    Deno.env.get("STRIPE_TEST_MODE")?.toLowerCase() === "true" ||
+    Deno.env.get("STRIPE_TEST_MODE") === "1";
+  const sanitize = (k: string | undefined) =>
+    k?.replace(/%+$/, "").replace(/\s+$/, "").trim() || undefined;
+  const stripeSecretKey = sanitize(
+    useTestMode
+      ? Deno.env.get("STRIPE_SECRET_KEY_TEST")
+      : Deno.env.get("STRIPE_SECRET_KEY")
+  );
+  const webhookSecret = sanitize(
+    useTestMode
+      ? Deno.env.get("STRIPE_WEBHOOK_SECRET_TEST")
+      : Deno.env.get("STRIPE_WEBHOOK_SECRET")
+  );
 
   if (!stripeSecretKey || !webhookSecret) {
-    console.error("STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET not set");
+    console.error(
+      `Stripe not configured for ${useTestMode ? "test" : "live"} mode`
+    );
     return new Response(JSON.stringify({ error: "Stripe not configured" }), {
       status: 503,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -58,10 +73,10 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
-    return new Response(
-      JSON.stringify({ error: "Invalid signature" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid signature" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   if (event.type !== "checkout.session.completed") {
@@ -77,20 +92,23 @@ serve(async (req) => {
   const tokenPack = session.metadata?.token_pack ?? "unknown";
 
   if (!userId || !tokensStr) {
-    console.error("Webhook missing user_id or tokens in metadata", session.metadata);
-    return new Response(
-      JSON.stringify({ error: "Missing metadata" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    console.error(
+      "Webhook missing user_id or tokens in metadata",
+      session.metadata
     );
+    return new Response(JSON.stringify({ error: "Missing metadata" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const tokens = parseInt(tokensStr, 10);
   if (isNaN(tokens) || tokens <= 0) {
     console.error("Invalid tokens in metadata", tokensStr);
-    return new Response(
-      JSON.stringify({ error: "Invalid tokens" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid tokens" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -98,19 +116,15 @@ serve(async (req) => {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    await creditTokens(
-      supabaseAdmin,
-      userId,
-      tokens,
-      `stripe_${tokenPack}`,
-      { session_id: session.id }
-    );
+    await creditTokens(supabaseAdmin, userId, tokens, `stripe_${tokenPack}`, {
+      session_id: session.id,
+    });
   } catch (err) {
     console.error("Credit tokens failed:", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to credit tokens" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Failed to credit tokens" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   return new Response(JSON.stringify({ received: true }), {
