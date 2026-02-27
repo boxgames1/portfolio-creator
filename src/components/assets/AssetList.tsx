@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 interface AssetListProps {
   assets: Asset[];
+  demoMode?: boolean;
   portfolio?: {
     assetsWithPrices: {
       id: string;
@@ -32,6 +33,7 @@ interface AssetListProps {
 
 export function AssetList({
   assets,
+  demoMode = false,
   portfolio: portfolioProp,
 }: AssetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -274,7 +276,12 @@ export function AssetList({
                     {asset.asset_type !== "fiat" && (
                       <DropdownMenuItem
                         onClick={() => handleRefreshPrice(asset)}
-                        disabled={refreshingPriceId === asset.id}
+                        disabled={refreshingPriceId === asset.id || demoMode}
+                        title={
+                          demoMode
+                            ? "Price refresh disabled in demo mode"
+                            : undefined
+                        }
                       >
                         <RefreshCw
                           className={`mr-2 h-4 w-4 ${

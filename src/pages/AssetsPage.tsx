@@ -247,7 +247,11 @@ export function AssetsPage() {
           ))}
         </div>
       ) : (
-        <AssetList assets={sortedAssets} portfolio={portfolio} />
+        <AssetList
+          assets={sortedAssets}
+          portfolio={portfolio}
+          demoMode={demoMode}
+        />
       )}
 
       <AddAssetDialog open={addOpen} onOpenChange={setAddOpen} />
