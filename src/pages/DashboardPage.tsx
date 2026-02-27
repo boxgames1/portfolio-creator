@@ -1,5 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import { Building2, FileDown, Sparkles, TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight,
+  Building2,
+  FileDown,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
 import {
@@ -43,7 +50,6 @@ import { DiversificationAnalysis } from "@/components/dashboard/DiversificationA
 import { RiskAlerts } from "@/components/dashboard/RiskAlerts";
 import { CategoryDistribution } from "@/components/dashboard/CategoryDistribution";
 import { PerformanceInsights } from "@/components/dashboard/PerformanceInsights";
-import { PortfolioChat } from "@/components/dashboard/PortfolioChat";
 import { PortfolioRatiosSection } from "@/components/dashboard/PortfolioRatiosSection";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
 import {
@@ -655,42 +661,22 @@ export function DashboardPage() {
         )}
       </Card>
 
-      {/* Portfolio chat */}
-      <PortfolioChat
-        portfolioContext={
-          displayPortfolio && totalWorth >= 0
-            ? {
-                totalValue: totalWorth,
-                totalCost,
-                roi,
-                byType: displayPortfolio.byType ?? [],
-                assets:
-                  displayPortfolio.assetsWithPrices && assets
-                    ? assets
-                        .filter((a) => a.asset_type !== "fiat")
-                        .map((a) => {
-                          const pw = displayPortfolio!.assetsWithPrices!.find(
-                            (p) => p.id === a.id
-                          );
-                          const cost =
-                            pw?.costInEur ?? a.purchase_price * a.quantity;
-                          const currentValue =
-                            pw?.currentValue ?? a.purchase_price * a.quantity;
-                          const roiA = pw?.roi ?? 0;
-                          return {
-                            name: a.name,
-                            asset_type: a.asset_type,
-                            cost,
-                            currentValue,
-                            roi: roiA,
-                          };
-                        })
-                    : undefined,
-              }
-            : null
-        }
-        disabled={!assets?.length || demoMode}
-      />
+      {/* Warren AI CTA */}
+      {!demoMode && (
+        <Card className="overflow-hidden">
+          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+            <p className="text-sm text-muted-foreground text-center sm:text-left">
+              Want to learn more about your portfolio or ask Warren AI?
+            </p>
+            <Button asChild variant="secondary" size="sm" className="shrink-0">
+              <Link to="/warren-ai" className="flex items-center gap-2">
+                Ask Warren AI
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {!displaySentimentLoading && displaySentiment && totalWorth > 0 && (
         <Card>

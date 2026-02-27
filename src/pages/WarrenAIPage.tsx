@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Bot, Send, Sparkles, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +15,79 @@ import { isInsufficientTokensError } from "@/lib/tokenErrors";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const SUGGESTED_PROMPTS = [
-  "How diversified is my portfolio?",
+const GENERIC_PROMPTS = [
   "What is the Sharpe ratio and how do I interpret it?",
   "Explain the difference between ETFs and mutual funds",
-  "What risk level does my current allocation have?",
   "How can I reduce volatility without stopping investing?",
 ];
+
+function getPortfolioSuggestions(
+  portfolio: ReturnType<typeof usePortfolioValue>["data"],
+  assets: ReturnType<typeof useAssets>["data"]
+): string[] {
+  const suggestions: string[] = [];
+  if (!portfolio || !assets?.length) {
+    return ["How diversified is my portfolio?", ...GENERIC_PROMPTS.slice(0, 2)];
+  }
+
+  const byType = portfolio.byType ?? [];
+  const totalValue = portfolio.totalValue;
+  const assetTypes = new Set(assets.map((a) => a.asset_type));
+
+  // Diversification (always relevant)
+  suggestions.push("How diversified is my portfolio?");
+
+  // Concentration: if one type dominates
+  const dominant = byType.find(
+    (t) => totalValue > 0 && t.value / totalValue > 0.7
+  );
+  if (dominant) {
+    const label = dominant.type.replace(/_/g, " ");
+    suggestions.push(`Why is ${label} such a large part of my portfolio?`);
+  }
+
+  // Crypto-specific
+  if (assetTypes.has("crypto")) {
+    suggestions.push("How risky is my cryptocurrency allocation?");
+  }
+
+  // Real estate
+  if (assetTypes.has("real_estate")) {
+    suggestions.push(
+      "What are the pros and cons of holding real estate in my portfolio?"
+    );
+  }
+
+  // ETFs / funds
+  if (assetTypes.has("etf") || assetTypes.has("fund")) {
+    suggestions.push("How do my ETFs compare to index funds?");
+  }
+
+  // Stocks
+  if (assetTypes.has("stock")) {
+    suggestions.push("How concentrated is my stock exposure?");
+  }
+
+  // Best/worst performer
+  const withRoi =
+    portfolio.assetsWithPrices?.filter((p) => p.roi != null) ?? [];
+  if (withRoi.length >= 2) {
+    suggestions.push("Which of my holdings has the best performance and why?");
+  }
+
+  // Risk
+  suggestions.push("What risk level does my current allocation have?");
+
+  // Fill with generic if needed (dedupe and limit)
+  const seen = new Set(suggestions);
+  for (const p of GENERIC_PROMPTS) {
+    if (!seen.has(p) && suggestions.length < 6) {
+      suggestions.push(p);
+      seen.add(p);
+    }
+  }
+  return suggestions.slice(0, 6);
+}
 
 function buildWarrenContext(
   portfolio: ReturnType<typeof usePortfolioValue>["data"],
@@ -62,9 +130,11 @@ export function WarrenAIPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const demoMode =
-    typeof localStorage !== "undefined" &&
-    localStorage.getItem("portfolio-demo") === "true";
+  const [demoMode, setDemoMode] = useState(
+    () =>
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("portfolio-demo") === "true"
+  );
   const { data: assets } = useAssets();
   const { data: portfolio } = usePortfolioValue({ enabled: !demoMode });
   const portfolioContext = buildWarrenContext(portfolio, assets ?? undefined);
@@ -136,11 +206,21 @@ export function WarrenAIPage() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {demoMode && (
-            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+            <div className="flex flex-col items-center justify-center gap-6 py-12 text-center">
               <p className="text-muted-foreground">
-                Warren AI is disabled in demo mode. Switch to your portfolio in
-                Dashboard or Assets to ask questions about your investments.
+                Warren AI is disabled in demo mode. Switch to your portfolio to
+                ask questions about your investments.
               </p>
+              <Button
+                onClick={() => {
+                  setDemoMode(false);
+                  try {
+                    localStorage.setItem("portfolio-demo", "false");
+                  } catch {}
+                }}
+              >
+                Switch to my portfolio
+              </Button>
             </div>
           )}
           {!demoMode && messages.length === 0 && (
@@ -158,18 +238,20 @@ export function WarrenAIPage() {
                 </p>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <Button
-                    key={prompt}
-                    variant="outline"
-                    size="sm"
-                    className="text-left h-auto py-2 px-3 whitespace-normal max-w-[280px]"
-                    onClick={() => handleSuggestion(prompt)}
-                  >
-                    <TrendingUp className="mr-2 h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    {prompt}
-                  </Button>
-                ))}
+                {getPortfolioSuggestions(portfolio, assets ?? undefined).map(
+                  (prompt) => (
+                    <Button
+                      key={prompt}
+                      variant="outline"
+                      size="sm"
+                      className="text-left h-auto py-2 px-3 whitespace-normal max-w-[280px]"
+                      onClick={() => handleSuggestion(prompt)}
+                    >
+                      <TrendingUp className="mr-2 h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      {prompt}
+                    </Button>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -188,9 +270,17 @@ export function WarrenAIPage() {
                   <Bot className="h-5 w-5 text-primary" />
                 </div>
               )}
-              <div className="min-w-0 flex-1 space-y-1 text-sm whitespace-pre-wrap">
-                {m.content}
-              </div>
+              {m.role === "assistant" ? (
+                <div className="min-w-0 flex-1 space-y-1 text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-pre:bg-muted prose-pre:rounded-lg prose-pre:p-3 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {m.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="min-w-0 flex-1 text-sm text-primary-foreground whitespace-pre-wrap">
+                  {m.content}
+                </div>
+              )}
             </div>
           ))}
           {!demoMode && chat.isPending && (

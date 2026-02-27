@@ -23,26 +23,34 @@ serve(async (req) => {
       });
     }
 
+    const token = authHeader.replace(/^Bearer\s+/i, "");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
 
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const {
       data: { user },
-    } = await supabaseAuth.auth.getUser();
+      error: authError,
+    } = await supabaseAuth.auth.getUser(token);
+    if (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message || "Invalid JWT" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     if (!openaiKey) {
       return new Response(JSON.stringify({ error: "OpenAI not configured" }), {
@@ -117,8 +125,14 @@ serve(async (req) => {
       );
       if (!deduct.ok) {
         return new Response(
-          JSON.stringify({ error: deduct.message, code: "INSUFFICIENT_TOKENS" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: deduct.message,
+            code: "INSUFFICIENT_TOKENS",
+          }),
+          {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
         );
       }
     }

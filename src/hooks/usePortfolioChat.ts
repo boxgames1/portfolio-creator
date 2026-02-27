@@ -33,6 +33,14 @@ export function usePortfolioChat(
   const mode = options?.mode ?? "default";
   return useMutation({
     mutationFn: async (messages: ChatMessage[]) => {
+      const {
+        data: { session },
+        error: refreshError,
+      } = await supabase.auth.refreshSession();
+      if (refreshError)
+        throw new Error("Session expired. Please sign in again.");
+      if (!session?.access_token) throw new Error("Not authenticated");
+
       const ctx =
         portfolioContext ??
         (mode === "warren"
