@@ -164,9 +164,7 @@ export function DashboardPage() {
             })) ?? [],
         },
         assets:
-          !demoMode &&
-          displayPortfolio.assetsWithPrices &&
-          filteredAssets
+          !demoMode && displayPortfolio.assetsWithPrices && filteredAssets
             ? filteredAssets
                 .map((a) => {
                   const pw = displayPortfolio!.assetsWithPrices!.find(
@@ -207,7 +205,14 @@ export function DashboardPage() {
 
   const sentimentInputForApi =
     demoMode || !sentimentInput || sentimentInput.portfolio.totalValue <= 0
-      ? { portfolio: { totalValue: 0, totalCost: 0, roi: 0, byType: [] as { type: string; value: number }[] } }
+      ? {
+          portfolio: {
+            totalValue: 0,
+            totalCost: 0,
+            roi: 0,
+            byType: [] as { type: string; value: number }[],
+          },
+        }
       : sentimentInput;
 
   const { data: portfolioSentiment, isLoading: sentimentLoading } =
@@ -223,7 +228,9 @@ export function DashboardPage() {
   const demoSuggestion = useMemo(() => getDemoSuggestion(), []);
   const displaySentiment = demoMode ? demoSentiment : portfolioSentiment;
   const displaySentimentLoading = demoMode ? false : sentimentLoading;
-  const displaySuggestion = demoMode ? demoSuggestion : (latestSuggestion ?? null);
+  const displaySuggestion = demoMode
+    ? demoSuggestion
+    : latestSuggestion ?? null;
   const displaySuggestionLoading = demoMode ? false : latestSuggestionLoading;
 
   if (isLoading || portfolioLoadingState) {
@@ -302,52 +309,57 @@ export function DashboardPage() {
     <div className="space-y-8">
       <div className="sticky top-0 z-10 -mx-4 -mt-4 flex flex-col gap-4 border-b border-border/40 bg-background/95 px-4 py-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80 md:-mx-8 md:-mt-8 md:px-8 md:py-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Overview of your portfolio
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              assets && portfolio && exportPortfolioToPdf(assets, portfolio)
-            }
-            disabled={!assets || assets.length === 0 || demoMode}
-            title={demoMode ? "Export disabled in demo mode" : undefined}
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            Export PDF
-          </Button>
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              checked={excludeRealEstate}
-              onChange={(e) => setExcludeRealEstate(e.target.checked)}
-              className="rounded border-input"
-            />
-            Without real estate
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              checked={demoMode}
-              onChange={(e) => {
-                const on = e.target.checked;
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Overview of your portfolio
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                assets && portfolio && exportPortfolioToPdf(assets, portfolio)
+              }
+              disabled={!assets || assets.length === 0}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Export PDF
+            </Button>
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={excludeRealEstate}
+                onChange={(e) => setExcludeRealEstate(e.target.checked)}
+                className="rounded border-input"
+              />
+              Without real estate
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant={demoMode ? "default" : "outline"}
+              className={
+                demoMode
+                  ? "border-amber-400 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                  : ""
+              }
+              onClick={() => {
+                const on = !demoMode;
                 setDemoMode(on);
                 try {
                   localStorage.setItem("portfolio-demo", on ? "true" : "false");
                 } catch {}
               }}
-              className="rounded border-input"
-            />
-            Portfolio demo
-          </label>
+              title="Toggle a sample demo portfolio with fake data"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {demoMode ? "Demo portfolio: ON" : "Demo portfolio"}
+            </Button>
+          </div>
         </div>
-      </div>
       </div>
 
       {demoMode && (
@@ -626,8 +638,7 @@ export function DashboardPage() {
             </CardTitle>
             <CardDescription>
               Fear & Greed – inferred from your allocation across all assets (0
-              = Extreme Fear, 100 = Extreme Greed).{" "}
-              {demoMode && "(Demo)"}
+              = Extreme Fear, 100 = Extreme Greed). {demoMode && "(Demo)"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -803,7 +814,9 @@ export function DashboardPage() {
           </DialogHeader>
           {(() => {
             const data = normalizeAIData(
-              demoMode ? displaySuggestion : (aiSuggestions.data ?? latestSuggestion ?? null)
+              demoMode
+                ? displaySuggestion
+                : aiSuggestions.data ?? latestSuggestion ?? null
             );
             if (!data) return null;
             const sortedSuggestions = [...data.suggestions].sort((a, b) => {

@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileDown, PlusCircle, RefreshCw, Search } from "lucide-react";
+import {
+  FileDown,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +25,7 @@ import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
 import { useRefreshPrices } from "@/hooks/useRefreshPrices";
 import { exportPortfolioToPdf } from "@/lib/exportPortfolioPdf";
+import { getDemoAssets, getDemoPortfolio } from "@/lib/demoPortfolio";
 
 type SortOption = "investment-asc" | "investment-desc" | "roi-asc" | "roi-desc";
 
@@ -35,15 +42,29 @@ export function AssetsPage() {
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
   const [sortBy, setSortBy] = useState<SortOption>("investment-desc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [demoMode, setDemoMode] = useState(() =>
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("portfolio-demo") === "true"
+      : false
+  );
 
   useEffect(() => {
     if (searchParams.get("add") === "1") {
       setAddOpen(true);
     }
   }, [searchParams]);
-  const { data: assets, isLoading } = useAssets();
-  const { data: portfolio, isLoading: portfolioLoading } = usePortfolioValue();
+  const { data: assetsQueryData, isLoading: assetsLoading } = useAssets();
+  const { data: portfolioQueryData, isLoading: portfolioLoadingQuery } =
+    usePortfolioValue();
   const refreshPrices = useRefreshPrices();
+
+  const demoAssets = useMemo(() => getDemoAssets(), []);
+  const demoPortfolio = useMemo(() => getDemoPortfolio(), []);
+
+  const assets = demoMode ? demoAssets : assetsQueryData ?? [];
+  const portfolio = demoMode ? demoPortfolio : portfolioQueryData;
+  const isLoading = demoMode ? false : assetsLoading;
+  const portfolioLoading = demoMode ? false : portfolioLoadingQuery;
 
   const filteredByType =
     assets?.filter(
@@ -146,8 +167,10 @@ export function AssetsPage() {
               assets.every(
                 (a) =>
                   a.asset_type === "fiat" || a.asset_type === "private_equity"
-              )
+              ) ||
+              demoMode
             }
+            title={demoMode ? "Price refresh disabled in demo mode" : undefined}
           >
             <RefreshCw
               className={`mr-2 h-4 w-4 ${
@@ -156,12 +179,40 @@ export function AssetsPage() {
             />
             Refresh prices
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={demoMode ? "default" : "outline"}
+            className={
+              demoMode
+                ? "border-amber-400 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                : ""
+            }
+            onClick={() => {
+              const on = !demoMode;
+              setDemoMode(on);
+              try {
+                localStorage.setItem("portfolio-demo", on ? "true" : "false");
+              } catch {}
+            }}
+            title="Toggle a sample demo portfolio with fake data"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {demoMode ? "Demo portfolio: ON" : "Demo portfolio"}
+          </Button>
           <Button onClick={() => setAddOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Asset
           </Button>
         </div>
       </div>
+
+      {demoMode && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          You are viewing <strong>Portfolio demo</strong> with sample data. Turn
+          it off above to see your real assets.
+        </div>
+      )}
 
       {isLoading || portfolioLoading ? (
         <div className="space-y-4">

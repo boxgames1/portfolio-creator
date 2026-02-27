@@ -79,8 +79,8 @@ const COLOR_CONFIGS: Record<
 export function AllocationDonutChart({
   byType,
   totalValue,
-  size = 220,
-  strokeWidth = 32,
+  size = 280,
+  strokeWidth = 36,
 }: AllocationDonutChartProps) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [isAnimated, setIsAnimated] = useState(false);
@@ -238,17 +238,34 @@ export function AllocationDonutChart({
 
         {/* center label */}
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2"
           style={{
             transform: isAnimated ? "scale(1)" : "scale(0)",
             transition:
               "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s",
           }}
         >
-          <span className="text-2xl font-bold">
-            {formatCurrency(totalValue, "EUR")}
+          <span
+            className={`font-bold tabular-nums ${
+              totalValue >= 1_000_000
+                ? "text-lg"
+                : totalValue >= 100_000
+                  ? "text-xl"
+                  : "text-2xl"
+            }`}
+          >
+            {totalValue >= 1_000_000
+              ? `${(totalValue / 1_000_000).toLocaleString("es-ES", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })} M €`
+              : totalValue >= 100_000
+                ? `${(totalValue / 1_000).toLocaleString("es-ES", {
+                    maximumFractionDigits: 0,
+                  })}k €`
+                : formatCurrency(totalValue, "EUR")}
           </span>
-          <span className="text-xs font-medium text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground mt-0.5">
             Total value
           </span>
           <span className="mt-1 text-[11px] text-muted-foreground/80">
