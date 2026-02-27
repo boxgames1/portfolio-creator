@@ -8,11 +8,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const TOKEN_PACKS: Record<string, { tokens: number; unitAmountCents: number }> = {
-  "100": { tokens: 100, unitAmountCents: 199 },
-  "500": { tokens: 500, unitAmountCents: 899 },
-  "1000": { tokens: 1000, unitAmountCents: 1499 },
-};
+const TOKEN_PACKS: Record<string, { tokens: number; unitAmountCents: number }> =
+  {
+    "100": { tokens: 100, unitAmountCents: 199 },
+    "500": { tokens: 500, unitAmountCents: 899 },
+    "1000": { tokens: 1000, unitAmountCents: 1499 },
+  };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -35,25 +36,33 @@ serve(async (req) => {
       });
     }
 
+    const token = authHeader.replace(/^Bearer\s+/i, "");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
     const appUrl = Deno.env.get("APP_URL") || "http://localhost:5173";
 
     if (!stripeSecretKey) {
-      return new Response(
-        JSON.stringify({ error: "Stripe not configured" }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Stripe not configured" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const {
       data: { user },
-    } = await supabaseAuth.auth.getUser();
+      error: authError,
+    } = await supabaseAuth.auth.getUser(token);
+    if (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message || "Invalid JWT" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -67,7 +76,10 @@ serve(async (req) => {
     if (!pack) {
       return new Response(
         JSON.stringify({ error: "Invalid pack. Use 100, 500, or 1000" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
       );
     }
 
@@ -103,17 +115,19 @@ serve(async (req) => {
       customer_email: user.email ?? undefined,
     });
 
-    return new Response(
-      JSON.stringify({ url: session.url }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return new Response(
       JSON.stringify({
         error: err instanceof Error ? err.message : "Unknown error",
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });

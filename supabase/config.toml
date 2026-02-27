@@ -47,3 +47,8 @@ verify_jwt = false
 
 [functions.get-portfolio-sentiment]
 verify_jwt = false
+
+# create-checkout-session validates the user manually via auth.getUser(token).
+# Disable gateway JWT verification to avoid 401 Invalid JWT (e.g. after refresh).
+[functions.create-checkout-session]
+verify_jwt = false

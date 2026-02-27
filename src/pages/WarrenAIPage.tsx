@@ -114,7 +114,7 @@ export function WarrenAIPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] min-h-[400px] flex-col rounded-xl border bg-card shadow-sm md:h-[calc(100vh-4rem)]">
+    <div className="mt-6 flex h-[calc(100vh-2rem)] min-h-[400px] flex-col rounded-xl border bg-card shadow-sm md:h-[calc(100vh-4rem)]">
       {/* Warren AI / InvestPro style header */}
       <div className="border-b bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-4 py-5 dark:from-primary/10 dark:via-primary/20 dark:to-primary/10">
         <div className="flex items-center gap-3">

@@ -25,6 +25,7 @@ import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
 import { useRefreshPrices } from "@/hooks/useRefreshPrices";
 import { exportPortfolioToPdf } from "@/lib/exportPortfolioPdf";
+import { cn } from "@/lib/utils";
 import { getDemoAssets, getDemoPortfolio } from "@/lib/demoPortfolio";
 
 type SortOption = "investment-asc" | "investment-desc" | "roi-asc" | "roi-desc";
@@ -112,98 +113,123 @@ export function AssetsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Assets</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your portfolio assets
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <Input
-              type="search"
-              placeholder="Search by name, ticker, ISIN..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-4 border-b border-border/40 bg-background/95 px-4 py-4 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-background/90 md:-mx-8 md:px-8 md:py-4 rounded-b-lg">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Assets</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your portfolio assets
+            </p>
           </div>
-          <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
-          <Select
-            value={sortBy}
-            onValueChange={(v) => setSortBy(v as SortOption)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              assets && portfolio && exportPortfolioToPdf(assets, portfolio)
-            }
-            disabled={!assets || assets.length === 0}
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            Export PDF
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => assets && refreshPrices.mutate(assets)}
-            disabled={
-              !assets ||
-              assets.length === 0 ||
-              refreshPrices.isPending ||
-              assets.every(
-                (a) =>
-                  a.asset_type === "fiat" || a.asset_type === "private_equity"
-              ) ||
-              demoMode
-            }
-            title={demoMode ? "Price refresh disabled in demo mode" : undefined}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${
-                refreshPrices.isPending ? "animate-spin" : ""
-              }`}
-            />
-            Refresh prices
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={demoMode ? "default" : "outline"}
-            className={
-              demoMode
-                ? "border-amber-400 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
-                : ""
-            }
-            onClick={() => {
-              const on = !demoMode;
-              setDemoMode(on);
-              try {
-                localStorage.setItem("portfolio-demo", on ? "true" : "false");
-              } catch {}
-            }}
-            title="Toggle a sample demo portfolio with fake data"
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            {demoMode ? "Demo portfolio: ON" : "Demo portfolio"}
-          </Button>
-          <Button onClick={() => setAddOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Asset
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[200px] max-w-xs">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                type="search"
+                placeholder="Search by name, ticker, ISIN..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <AssetTypeFilter value={typeFilter} onChange={setTypeFilter} />
+            <Select
+              value={sortBy}
+              onValueChange={(v) => setSortBy(v as SortOption)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                assets && portfolio && exportPortfolioToPdf(assets, portfolio)
+              }
+              disabled={!assets || assets.length === 0}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => assets && refreshPrices.mutate(assets)}
+              disabled={
+                !assets ||
+                assets.length === 0 ||
+                refreshPrices.isPending ||
+                assets.every(
+                  (a) =>
+                    a.asset_type === "fiat" || a.asset_type === "private_equity"
+                ) ||
+                demoMode
+              }
+              title={
+                demoMode ? "Price refresh disabled in demo mode" : undefined
+              }
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${
+                  refreshPrices.isPending ? "animate-spin" : ""
+                }`}
+              />
+              Refresh prices
+            </Button>
+            <div
+              role="group"
+              aria-label="Portfolio data source"
+              className="flex items-center rounded-full border border-input bg-muted/50 p-0.5"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setDemoMode(false);
+                  try {
+                    localStorage.setItem("portfolio-demo", "false");
+                  } catch {}
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200",
+                  !demoMode
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>My portfolio</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDemoMode(true);
+                  try {
+                    localStorage.setItem("portfolio-demo", "true");
+                  } catch {}
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200",
+                  demoMode
+                    ? "bg-amber-100 text-amber-900 shadow-sm ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-100 dark:ring-amber-800"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Sample portfolio with fake data"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Demo</span>
+              </button>
+            </div>
+            <Button onClick={() => setAddOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Asset
+            </Button>
+          </div>
         </div>
       </div>
 
