@@ -16,7 +16,7 @@ function priceKey(identifier: string, currency: string, assetType?: string) {
   return `${id}-${curr}`;
 }
 
-interface PortfolioValue {
+export interface PortfolioValue {
   totalValue: number;
   totalCost: number;
   byType: { type: string; value: number; cost: number }[];
@@ -29,8 +29,9 @@ interface PortfolioValue {
   }[];
 }
 
-export function usePortfolioValue() {
+export function usePortfolioValue(options?: { enabled?: boolean }) {
   const { data: assets } = useAssets();
+  const enabled = options?.enabled !== false;
 
   return useQuery({
     queryKey: [
@@ -208,6 +209,6 @@ export function usePortfolioValue() {
         assetsWithPrices,
       };
     },
-    enabled: !!assets && assets.length > 0,
+    enabled: enabled && !!assets && assets.length > 0,
   });
 }

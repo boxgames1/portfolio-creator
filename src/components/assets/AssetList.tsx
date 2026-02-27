@@ -19,14 +19,27 @@ import { toast } from "sonner";
 
 interface AssetListProps {
   assets: Asset[];
+  portfolio?: {
+    assetsWithPrices: {
+      id: string;
+      currentPrice?: number;
+      currentValue?: number;
+      costInEur?: number;
+      roi?: number;
+    }[];
+  } | null;
 }
 
-export function AssetList({ assets }: AssetListProps) {
+export function AssetList({
+  assets,
+  portfolio: portfolioProp,
+}: AssetListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [refreshingPriceId, setRefreshingPriceId] = useState<string | null>(
     null
   );
-  const { data: portfolio } = usePortfolioValue();
+  const { data: portfolioFromHook } = usePortfolioValue();
+  const portfolio = portfolioProp ?? portfolioFromHook;
   const deleteAsset = useDeleteAsset();
   const refreshPrices = useRefreshPrices();
 

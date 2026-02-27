@@ -211,7 +211,9 @@ serve(async (req) => {
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user } } = await supabaseAuth.auth.getUser();
+      const {
+        data: { user },
+      } = await supabaseAuth.auth.getUser();
       userId = user?.id ?? null;
     }
 
@@ -545,111 +547,118 @@ serve(async (req) => {
           if (openaiKey && userId) {
             const admin = await isAdmin(supabase, userId);
             if (!admin) {
-              const deduct = await deductTokens(
-                supabase,
-                userId,
-                TOKEN_COSTS.real_estate_estimate,
-                "real_estate_estimate",
-                { asset_id: assetId }
-              );
+              // Only charge for real estate when manually refreshed (force). Normal/cache-clear fetches are free.
+              const shouldCharge = forceRefresh === true;
+              const deduct = shouldCharge
+                ? await deductTokens(
+                    supabase,
+                    userId,
+                    TOKEN_COSTS.real_estate_estimate,
+                    "real_estate_estimate",
+                    { asset_id: assetId }
+                  )
+                : { ok: true as const, balanceAfter: 0 };
               if (!deduct.ok) {
                 price = Number(asset.purchase_price);
                 source = "purchase_price";
               } else {
                 try {
-              const meta = (asset.metadata ?? {}) as Record<string, unknown>;
-              const prompt = `Estimate the current market value in EUR of a property with: ${JSON.stringify(
-                meta
-              )}. Purchase price was ${
-                asset.purchase_price
-              }. Reply with ONLY a number, no explanation. Analyze the property, the growth of the area and the market to make a fair estimate. 
+                  const meta = (asset.metadata ?? {}) as Record<
+                    string,
+                    unknown
+                  >;
+                  const prompt = `Estimate the current market value in EUR of a property with: ${JSON.stringify(
+                    meta
+                  )}. Purchase price was ${
+                    asset.purchase_price
+                  }. Reply with ONLY a number, no explanation. Analyze the property, the growth of the area and the market to make a fair estimate. 
                Compare the property to similar properties in the area to make a fair estimate and check real estate portals if needed.
                 `;
-              const openaiRes = await fetch(
-                "https://api.openai.com/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openaiKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: "gpt-4o-mini",
-                    messages: [{ role: "user", content: prompt }],
-                    max_tokens: 50,
-                  }),
-                }
-              );
-              const openaiData = (await openaiRes.json()) as {
-                choices?: Array<{ message?: { content?: string } }>;
-                error?: { message?: string };
-              };
-              if (!openaiRes.ok) {
-                console.error(
-                  "OpenAI error:",
-                  openaiData.error?.message ?? openaiRes.status
-                );
-              } else {
-                const content = openaiData.choices?.[0]?.message?.content;
-                const parsed = parseFloat(
-                  String(content ?? "").replace(/[^0-9.]/g, "")
-                );
-                if (!isNaN(parsed) && parsed > 0) {
-                  price = parsed;
-                  source = "openai";
+                  const openaiRes = await fetch(
+                    "https://api.openai.com/v1/chat/completions",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${openaiKey}`,
+                      },
+                      body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [{ role: "user", content: prompt }],
+                        max_tokens: 50,
+                      }),
+                    }
+                  );
+                  const openaiData = (await openaiRes.json()) as {
+                    choices?: Array<{ message?: { content?: string } }>;
+                    error?: { message?: string };
+                  };
+                  if (!openaiRes.ok) {
+                    console.error(
+                      "OpenAI error:",
+                      openaiData.error?.message ?? openaiRes.status
+                    );
+                  } else {
+                    const content = openaiData.choices?.[0]?.message?.content;
+                    const parsed = parseFloat(
+                      String(content ?? "").replace(/[^0-9.]/g, "")
+                    );
+                    if (!isNaN(parsed) && parsed > 0) {
+                      price = parsed;
+                      source = "openai";
+                    }
+                  }
+                } catch (err) {
+                  console.error("Real estate OpenAI:", err);
                 }
               }
-            } catch (err) {
-              console.error("Real estate OpenAI:", err);
-            }
-            }
             } else {
               try {
-              const meta = (asset.metadata ?? {}) as Record<string, unknown>;
-              const prompt = `Estimate the current market value in EUR of a property with: ${JSON.stringify(
-                meta
-              )}. Purchase price was ${
-                asset.purchase_price
-              }. Reply with ONLY a number, no explanation. Analyze the property, the growth of the area and the market to make a fair estimate. 
+                const meta = (asset.metadata ?? {}) as Record<string, unknown>;
+                const prompt = `Estimate the current market value in EUR of a property with: ${JSON.stringify(
+                  meta
+                )}. Purchase price was ${
+                  asset.purchase_price
+                }. Reply with ONLY a number, no explanation. Analyze the property, the growth of the area and the market to make a fair estimate. 
                Compare the property to similar properties in the area to make a fair estimate and check real estate portals if needed.
                 `;
-              const openaiRes = await fetch(
-                "https://api.openai.com/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openaiKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: "gpt-4o-mini",
-                    messages: [{ role: "user", content: prompt }],
-                    max_tokens: 50,
-                  }),
-                }
-              );
-              const openaiData = (await openaiRes.json()) as {
-                choices?: Array<{ message?: { content?: string } }>;
-                error?: { message?: string };
-              };
-              if (!openaiRes.ok) {
-                console.error(
-                  "OpenAI error:",
-                  openaiData.error?.message ?? openaiRes.status
+                const openaiRes = await fetch(
+                  "https://api.openai.com/v1/chat/completions",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${openaiKey}`,
+                    },
+                    body: JSON.stringify({
+                      model: "gpt-4o-mini",
+                      messages: [{ role: "user", content: prompt }],
+                      max_tokens: 50,
+                    }),
+                  }
                 );
-              } else {
-                const content = openaiData.choices?.[0]?.message?.content;
-                const parsed = parseFloat(
-                  String(content ?? "").replace(/[^0-9.]/g, "")
-                );
-                if (!isNaN(parsed) && parsed > 0) {
-                  price = parsed;
-                  source = "openai";
+                const openaiData = (await openaiRes.json()) as {
+                  choices?: Array<{ message?: { content?: string } }>;
+                  error?: { message?: string };
+                };
+                if (!openaiRes.ok) {
+                  console.error(
+                    "OpenAI error:",
+                    openaiData.error?.message ?? openaiRes.status
+                  );
+                } else {
+                  const content = openaiData.choices?.[0]?.message?.content;
+                  const parsed = parseFloat(
+                    String(content ?? "").replace(/[^0-9.]/g, "")
+                  );
+                  if (!isNaN(parsed) && parsed > 0) {
+                    price = parsed;
+                    source = "openai";
+                  }
                 }
+              } catch (err) {
+                console.error("Real estate OpenAI:", err);
               }
-            } catch (err) {
-              console.error("Real estate OpenAI:", err);
-            }
             }
           } else if (openaiKey && !userId) {
             price = Number(asset.purchase_price);

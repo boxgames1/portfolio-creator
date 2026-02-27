@@ -80,7 +80,7 @@ function buildHistoryAssets(
   });
 }
 
-export function usePortfolioHistory(): {
+export function usePortfolioHistory(options?: { enabled?: boolean }): {
   data: PortfolioHistoryResult | null;
   isLoading: boolean;
   isError: boolean;
@@ -127,7 +127,7 @@ export function usePortfolioHistory(): {
         sharpeRatio: sharpe,
       };
     },
-    enabled: hasFetchable,
+    enabled: options?.enabled !== false && hasFetchable,
     staleTime: 1000 * 60 * 60, // 1h
   });
 

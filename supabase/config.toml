@@ -56,3 +56,6 @@ verify_jwt = false
 # stripe-webhook is called by Stripe servers (no JWT). Must disable verify_jwt.
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.portfolio.chat]
+verify_jwt = false

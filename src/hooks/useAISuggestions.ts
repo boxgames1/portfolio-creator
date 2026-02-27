@@ -24,11 +24,9 @@ export function useAISuggestions() {
         roi: number;
       }>;
     }): Promise<AISuggestionResponse> => {
-      const { data, error } =
-        await supabase.functions.invoke<AISuggestionResponse & { code?: string }>(
-          "get-ai-suggestions",
-          { body: input }
-        );
+      const { data, error } = await supabase.functions.invoke<
+        AISuggestionResponse & { code?: string }
+      >("get-ai-suggestions", { body: input });
       throwIfInsufficientTokens(data, error);
       if (error) throw error;
       if (!data) throw new Error("No response from AI");
@@ -38,6 +36,9 @@ export function useAISuggestions() {
       queryClient.invalidateQueries({
         queryKey: LATEST_AI_SUGGESTION_QUERY_KEY,
       });
+      queryClient.invalidateQueries({ queryKey: ["token-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["token-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["token-spending-breakdown"] });
     },
   });
 }

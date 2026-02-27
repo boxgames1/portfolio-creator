@@ -32,21 +32,19 @@ function buildWarrenContext(
     type: t.type,
     value: t.value,
   }));
-  const assetsList = assets
-    .filter((a) => a.asset_type !== "fiat")
-    .map((a) => {
-      const pw = portfolio.assetsWithPrices.find((p) => p.id === a.id);
-      const cost = pw?.costInEur ?? a.purchase_price * a.quantity;
-      const currentValue = pw?.currentValue ?? a.purchase_price * a.quantity;
-      const roi = pw?.roi ?? 0;
-      return {
-        name: a.name,
-        asset_type: a.asset_type,
-        cost,
-        currentValue,
-        roi,
-      };
-    });
+  const assetsList = assets.map((a) => {
+    const pw = portfolio.assetsWithPrices.find((p) => p.id === a.id);
+    const cost = pw?.costInEur ?? a.purchase_price * a.quantity;
+    const currentValue = pw?.currentValue ?? a.purchase_price * a.quantity;
+    const roi = pw?.roi ?? 0;
+    return {
+      name: a.name,
+      asset_type: a.asset_type,
+      cost,
+      currentValue,
+      roi,
+    };
+  });
   return {
     totalValue: portfolio.totalValue,
     totalCost: portfolio.totalCost,
@@ -64,8 +62,11 @@ export function WarrenAIPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const demoMode =
+    typeof localStorage !== "undefined" &&
+    localStorage.getItem("portfolio-demo") === "true";
   const { data: assets } = useAssets();
-  const { data: portfolio } = usePortfolioValue();
+  const { data: portfolio } = usePortfolioValue({ enabled: !demoMode });
   const portfolioContext = buildWarrenContext(portfolio, assets ?? undefined);
   const chat = usePortfolioChat(portfolioContext, { mode: "warren" });
 
@@ -134,7 +135,15 @@ export function WarrenAIPage() {
       {/* Chat area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && (
+          {demoMode && (
+            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+              <p className="text-muted-foreground">
+                Warren AI is disabled in demo mode. Switch to your portfolio in
+                Dashboard or Assets to ask questions about your investments.
+              </p>
+            </div>
+          )}
+          {!demoMode && messages.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-6 py-12 text-center">
               <div className="rounded-full bg-muted p-4">
                 <Sparkles className="h-8 w-8 text-muted-foreground" />
@@ -184,7 +193,7 @@ export function WarrenAIPage() {
               </div>
             </div>
           ))}
-          {chat.isPending && (
+          {!demoMode && chat.isPending && (
             <div className="flex gap-3 rounded-lg px-4 py-3 mr-8 bg-muted/80">
               <Bot className="h-5 w-5 shrink-0 text-primary animate-pulse" />
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -197,30 +206,38 @@ export function WarrenAIPage() {
           <div ref={bottomRef} />
         </div>
 
-        <form
-          className="border-t p-4 bg-background/80"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-        >
-          <div className="flex gap-2">
-            <Input
-              placeholder="Ask about your portfolio or investing..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={chat.isPending}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!input.trim() || chat.isPending}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+        {demoMode && (
+          <div className="border-t px-4 py-3 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 text-sm">
+            Warren AI is disabled in demo mode. Switch to your portfolio to ask
+            questions.
           </div>
-        </form>
+        )}
+        {!demoMode && (
+          <form
+            className="border-t p-4 bg-background/80"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+          >
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ask about your portfolio or investing..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={chat.isPending}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!input.trim() || chat.isPending}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

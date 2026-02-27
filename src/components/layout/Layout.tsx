@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -14,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { Moon, Sun } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -27,6 +29,19 @@ export function Layout() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { data: tokenBalance, isLoading: tokensLoading } = useTokenBalance();
+  const prevBalanceRef = useRef<number | null>(null);
+  const [justDeducted, setJustDeducted] = useState(false);
+
+  useEffect(() => {
+    if (tokensLoading || tokenBalance == null) return;
+    const prev = prevBalanceRef.current;
+    prevBalanceRef.current = tokenBalance;
+    if (prev != null && tokenBalance < prev) {
+      setJustDeducted(true);
+      const t = setTimeout(() => setJustDeducted(false), 1800);
+      return () => clearTimeout(t);
+    }
+  }, [tokenBalance, tokensLoading]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -64,7 +79,12 @@ export function Layout() {
         <div className="p-4 border-t space-y-2 shrink-0">
           <Link
             to="/account"
-            className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm hover:bg-muted transition-colors"
+            className={cn(
+              "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors duration-300",
+              justDeducted
+                ? "bg-red-50 border-red-300 dark:bg-red-950/50 dark:border-red-800 animate-[token-deducted_1.8s_ease-out]"
+                : "bg-muted/40"
+            )}
           >
             <span className="flex items-center gap-2">
               <Coins className="h-4 w-4 text-amber-500" />

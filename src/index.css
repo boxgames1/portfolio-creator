@@ -59,3 +59,16 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+@keyframes token-deducted {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  30% {
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.5);
+  }
+  60% {
+    box-shadow: 0 0 0 2px rgb(239 68 68 / 0.3);
+  }
+}

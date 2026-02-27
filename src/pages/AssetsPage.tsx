@@ -56,7 +56,7 @@ export function AssetsPage() {
   }, [searchParams]);
   const { data: assetsQueryData, isLoading: assetsLoading } = useAssets();
   const { data: portfolioQueryData, isLoading: portfolioLoadingQuery } =
-    usePortfolioValue();
+    usePortfolioValue({ enabled: !demoMode });
   const refreshPrices = useRefreshPrices();
 
   const demoAssets = useMemo(() => getDemoAssets(), []);
@@ -247,7 +247,7 @@ export function AssetsPage() {
           ))}
         </div>
       ) : (
-        <AssetList assets={sortedAssets} />
+        <AssetList assets={sortedAssets} portfolio={portfolio} />
       )}
 
       <AddAssetDialog open={addOpen} onOpenChange={setAddOpen} />

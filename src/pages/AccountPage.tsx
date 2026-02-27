@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Coins, CreditCard, History, FlaskConical } from "lucide-react";
+import { Coins, CreditCard, History } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,15 +10,15 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTokenBalance, useTokenTransactions } from "@/hooks/useTokenBalance";
 import {
-  useCreateCheckoutSession,
-  type CreateCheckoutOptions,
-} from "@/hooks/useCreateCheckoutSession";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+  useTokenBalance,
+  useTokenTransactions,
+  useTokenSpendingBreakdown,
+  getReferenceLabel,
+} from "@/hooks/useTokenBalance";
+import { useCreateCheckoutSession } from "@/hooks/useCreateCheckoutSession";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
 
 const PACKS = [
   { key: "100" as const, tokens: 100, price: "€1.99", label: "100 tokens" },
@@ -38,20 +38,11 @@ const PACKS = [
   },
 ];
 
-const STRIPE_TEST_STORAGE = "stripe-test-mode";
-
 export function AccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [stripeTestMode, setStripeTestMode] = useState(() => {
-    try {
-      return localStorage.getItem(STRIPE_TEST_STORAGE) === "true";
-    } catch {
-      return false;
-    }
-  });
-  const { isAdmin } = useIsAdmin();
   const { data: balance, isLoading: balanceLoading } = useTokenBalance();
   const { data: transactions, isLoading: txLoading } = useTokenTransactions();
+  const { data: spendingBreakdown } = useTokenSpendingBreakdown();
   const createCheckout = useCreateCheckoutSession();
 
   useEffect(() => {
@@ -67,11 +58,7 @@ export function AccountPage() {
   }, [searchParams, setSearchParams]);
 
   const handleBuy = (pack: "100" | "500" | "1000") => {
-    const options: CreateCheckoutOptions = {
-      pack,
-      testMode: isAdmin ? stripeTestMode : false,
-    };
-    createCheckout.mutate(options, {
+    createCheckout.mutate(pack, {
       onSuccess: (url) => {
         if (url) window.location.href = url;
       },
@@ -124,51 +111,7 @@ export function AccountPage() {
             One-time purchase. Tokens never expire.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {isAdmin && (
-            <div
-              role="group"
-              aria-label="Stripe mode"
-              className="flex items-center rounded-full border border-input bg-muted/50 p-0.5 w-fit"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setStripeTestMode(false);
-                  try {
-                    localStorage.setItem(STRIPE_TEST_STORAGE, "false");
-                  } catch {}
-                }}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200",
-                  !stripeTestMode
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <span>Live</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStripeTestMode(true);
-                  try {
-                    localStorage.setItem(STRIPE_TEST_STORAGE, "true");
-                  } catch {}
-                }}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200",
-                  stripeTestMode
-                    ? "bg-amber-100 text-amber-900 shadow-sm ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-100 dark:ring-amber-800"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Use Stripe test mode (no real charges)"
-              >
-                <FlaskConical className="h-3.5 w-3.5" />
-                <span>Test</span>
-              </button>
-            </div>
-          )}
+        <CardContent>
           <div className="grid gap-4 sm:grid-cols-3">
             {PACKS.map((pack) => (
               <div
@@ -209,6 +152,33 @@ export function AccountPage() {
         </CardContent>
       </Card>
 
+      {spendingBreakdown && spendingBreakdown.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Token spending breakdown
+            </CardTitle>
+            <CardDescription>Where your tokens have been used</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {spendingBreakdown.map(({ reference, label, tokens }) => (
+                <li
+                  key={reference}
+                  className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                >
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-semibold tabular-nums">
+                    {tokens} tokens
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -242,7 +212,7 @@ export function AccountPage() {
                             "stripe_",
                             ""
                           )} pack`
-                        : tx.reference.replace(/_/g, " ")}
+                        : getReferenceLabel(tx.reference)}
                     </span>
                     <p className="text-muted-foreground text-xs">
                       {formatDistanceToNow(new Date(tx.created_at), {

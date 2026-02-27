@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
-import { isAdmin } from "../_shared/roles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,8 +41,8 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const appUrl = Deno.env.get("APP_URL") || "http://localhost:5173";
 
-    const body = (await req.json()) as { pack?: string; testMode?: boolean };
-    const envTestMode =
+    const body = (await req.json()) as { pack?: string };
+    const useTestMode =
       Deno.env.get("STRIPE_TEST_MODE")?.toLowerCase() === "true" ||
       Deno.env.get("STRIPE_TEST_MODE") === "1";
 
@@ -67,14 +66,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseAdmin = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-    const userIsAdmin = await isAdmin(supabaseAdmin, user.id);
-    const useTestMode =
-      envTestMode || (body.testMode === true && userIsAdmin);
 
     const rawTestKey = Deno.env.get("STRIPE_SECRET_KEY_TEST");
     const rawLiveKey = Deno.env.get("STRIPE_SECRET_KEY");

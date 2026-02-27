@@ -87,7 +87,7 @@ export function DashboardPage() {
   );
   const { data: assetsQueryData, isLoading: assetsLoading } = useAssets();
   const { data: portfolioQueryData, isLoading: portfolioLoading } =
-    usePortfolioValue();
+    usePortfolioValue({ enabled: !demoMode });
   const demoAssets = useMemo(() => getDemoAssets(), []);
   const demoPortfolio = useMemo(() => getDemoPortfolio(), []);
   const assets = demoMode ? demoAssets : assetsQueryData ?? null;
@@ -227,7 +227,7 @@ export function DashboardPage() {
     }
   );
   const { data: portfolioHistory, isLoading: historyLoading } =
-    usePortfolioHistory();
+    usePortfolioHistory({ enabled: !demoMode });
   const demoHistory = useMemo(() => getDemoHistoryResult(), []);
   const demoSentiment = useMemo(() => getDemoSentiment(), []);
   const demoSuggestion = useMemo(() => getDemoSuggestion(), []);
@@ -689,7 +689,7 @@ export function DashboardPage() {
               }
             : null
         }
-        disabled={!assets?.length}
+        disabled={!assets?.length || demoMode}
       />
 
       {!displaySentimentLoading && displaySentiment && totalWorth > 0 && (

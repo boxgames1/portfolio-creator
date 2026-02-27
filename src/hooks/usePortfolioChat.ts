@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { throwIfInsufficientTokens } from "@/lib/tokenErrors";
 
@@ -29,6 +29,7 @@ export function usePortfolioChat(
   portfolioContext: PortfolioChatContext | null,
   options?: { mode?: "default" | "warren" }
 ) {
+  const queryClient = useQueryClient();
   const mode = options?.mode ?? "default";
   return useMutation({
     mutationFn: async (messages: ChatMessage[]) => {
@@ -50,21 +51,24 @@ export function usePortfolioChat(
             }
           : null);
       if (!ctx) throw new Error("No portfolio context");
-      const { data, error } =
-        await supabase.functions.invoke<PortfolioChatResponse & { code?: string }>(
-          "portfolio-chat",
-          {
-            body: {
-              messages,
-              portfolioContext: ctx,
-              ...(mode === "warren" ? { mode: "warren" as const } : {}),
-            },
-          }
-        );
+      const { data, error } = await supabase.functions.invoke<
+        PortfolioChatResponse & { code?: string }
+      >("portfolio-chat", {
+        body: {
+          messages,
+          portfolioContext: ctx,
+          ...(mode === "warren" ? { mode: "warren" as const } : {}),
+        },
+      });
       throwIfInsufficientTokens(data, error);
       if (error) throw error;
       if (!data?.message) throw new Error("Invalid response");
       return data.message;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["token-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["token-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["token-spending-breakdown"] });
     },
   });
 }
