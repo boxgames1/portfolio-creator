@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { deductTokens, TOKEN_COSTS } from "../_shared/tokens.ts";
+import { isAdmin } from "../_shared/roles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -195,12 +197,23 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const finnhubKey = Deno.env.get("FINNHUB_API_KEY");
     const tiingoKey = Deno.env.get("TIINGO_API_KEY");
     const alphaVantageKey = Deno.env.get("ALPHA_VANTAGE_API_KEY");
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      userId = user?.id ?? null;
+    }
 
     const body = (await req.json()) as {
       requests: PriceRequest[];
@@ -529,8 +542,21 @@ serve(async (req) => {
         }
 
         if (asset?.purchase_price != null && asset.purchase_price > 0) {
-          if (openaiKey) {
-            try {
+          if (openaiKey && userId) {
+            const admin = await isAdmin(supabase, userId);
+            if (!admin) {
+              const deduct = await deductTokens(
+                supabase,
+                userId,
+                TOKEN_COSTS.real_estate_estimate,
+                "real_estate_estimate",
+                { asset_id: assetId }
+              );
+              if (!deduct.ok) {
+                price = Number(asset.purchase_price);
+                source = "purchase_price";
+              } else {
+                try {
               const meta = (asset.metadata ?? {}) as Record<string, unknown>;
               const prompt = `Estimate the current market value in EUR of a property with: ${JSON.stringify(
                 meta
@@ -576,6 +602,58 @@ serve(async (req) => {
             } catch (err) {
               console.error("Real estate OpenAI:", err);
             }
+            }
+            } else {
+              try {
+              const meta = (asset.metadata ?? {}) as Record<string, unknown>;
+              const prompt = `Estimate the current market value in EUR of a property with: ${JSON.stringify(
+                meta
+              )}. Purchase price was ${
+                asset.purchase_price
+              }. Reply with ONLY a number, no explanation. Analyze the property, the growth of the area and the market to make a fair estimate. 
+               Compare the property to similar properties in the area to make a fair estimate and check real estate portals if needed.
+                `;
+              const openaiRes = await fetch(
+                "https://api.openai.com/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openaiKey}`,
+                  },
+                  body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 50,
+                  }),
+                }
+              );
+              const openaiData = (await openaiRes.json()) as {
+                choices?: Array<{ message?: { content?: string } }>;
+                error?: { message?: string };
+              };
+              if (!openaiRes.ok) {
+                console.error(
+                  "OpenAI error:",
+                  openaiData.error?.message ?? openaiRes.status
+                );
+              } else {
+                const content = openaiData.choices?.[0]?.message?.content;
+                const parsed = parseFloat(
+                  String(content ?? "").replace(/[^0-9.]/g, "")
+                );
+                if (!isNaN(parsed) && parsed > 0) {
+                  price = parsed;
+                  source = "openai";
+                }
+              }
+            } catch (err) {
+              console.error("Real estate OpenAI:", err);
+            }
+            }
+          } else if (openaiKey && !userId) {
+            price = Number(asset.purchase_price);
+            source = "purchase_price";
           }
           if (price === null) {
             price = Number(asset.purchase_price);

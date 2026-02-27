@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { throwIfInsufficientTokens } from "@/lib/tokenErrors";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -50,7 +51,7 @@ export function usePortfolioChat(
           : null);
       if (!ctx) throw new Error("No portfolio context");
       const { data, error } =
-        await supabase.functions.invoke<PortfolioChatResponse>(
+        await supabase.functions.invoke<PortfolioChatResponse & { code?: string }>(
           "portfolio-chat",
           {
             body: {
@@ -60,6 +61,7 @@ export function usePortfolioChat(
             },
           }
         );
+      throwIfInsufficientTokens(data, error);
       if (error) throw error;
       if (!data?.message) throw new Error("Invalid response");
       return data.message;

@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { deductTokens, TOKEN_COSTS } from "../_shared/tokens.ts";
+import { isAdmin } from "../_shared/roles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,6 +99,23 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
+    }
+
+    const admin = await isAdmin(supabaseAdmin, user.id);
+    if (!admin) {
+      const deduct = await deductTokens(
+        supabaseAdmin,
+        user.id,
+        TOKEN_COSTS.ai_suggestions,
+        "ai_suggestions",
+        {}
+      );
+      if (!deduct.ok) {
+        return new Response(
+          JSON.stringify({ error: deduct.message, code: "INSUFFICIENT_TOKENS" }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const assetsContext =

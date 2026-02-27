@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { AISuggestionResponse } from "@/types";
 import { LATEST_AI_SUGGESTION_QUERY_KEY } from "./useLatestAISuggestion";
+import { throwIfInsufficientTokens } from "@/lib/tokenErrors";
 
 export function useAISuggestions() {
   const queryClient = useQueryClient();
@@ -24,10 +25,11 @@ export function useAISuggestions() {
       }>;
     }): Promise<AISuggestionResponse> => {
       const { data, error } =
-        await supabase.functions.invoke<AISuggestionResponse>(
+        await supabase.functions.invoke<AISuggestionResponse & { code?: string }>(
           "get-ai-suggestions",
           { body: input }
         );
+      throwIfInsufficientTokens(data, error);
       if (error) throw error;
       if (!data) throw new Error("No response from AI");
       return data;

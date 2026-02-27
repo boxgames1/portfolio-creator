@@ -10,6 +10,7 @@ const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/assets", label: "Assets", icon: Wallet },
   { path: "/warren-ai", label: "Warren AI", icon: Bot },
+  { path: "/account", label: "Account", icon: User },
 ];
 
 export function Layout() {

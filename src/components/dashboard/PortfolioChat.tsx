@@ -3,11 +3,13 @@ import { MessageCircle, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   usePortfolioChat,
   type ChatMessage,
   type PortfolioChatContext,
 } from "@/hooks/usePortfolioChat";
+import { isInsufficientTokensError } from "@/lib/tokenErrors";
 import { cn } from "@/lib/utils";
 
 interface PortfolioChatProps {
@@ -40,15 +42,26 @@ export function PortfolioChat({
       onSuccess: (assistant) => {
         setMessages((prev) => [...prev, assistant]);
       },
-      onError: () => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content:
-              "Could not get a response. Check your connection or try again later.",
-          },
-        ]);
+      onError: (err) => {
+        if (isInsufficientTokensError(err)) {
+          toast.error("Insufficient tokens. Buy more in Account.");
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: "You don't have enough tokens. Go to Account to buy more.",
+            },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content:
+                "Could not get a response. Check your connection or try again later.",
+            },
+          ]);
+        }
       },
     });
   };

@@ -5,6 +5,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { AssetsPage } from "@/pages/AssetsPage";
 import { WarrenAIPage } from "@/pages/WarrenAIPage";
+import { AccountPage } from "@/pages/AccountPage";
 
 function LoginRedirect({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -59,6 +60,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="assets" element={<AssetsPage />} />
         <Route path="warren-ai" element={<WarrenAIPage />} />
+        <Route path="account" element={<AccountPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { throwIfInsufficientTokens } from "@/lib/tokenErrors";
 
 export interface PortfolioSentimentResponse {
   value: number;
@@ -47,10 +48,11 @@ export function usePortfolioSentiment(input: {
     ],
     queryFn: async (): Promise<PortfolioSentimentResponse> => {
       const { data, error } =
-        await supabase.functions.invoke<PortfolioSentimentResponse>(
+        await supabase.functions.invoke<PortfolioSentimentResponse & { code?: string }>(
           "get-portfolio-sentiment",
           { body: input }
         );
+      throwIfInsufficientTokens(data, error);
       if (error) throw error;
       if (!data) throw new Error("No sentiment response");
       return data;

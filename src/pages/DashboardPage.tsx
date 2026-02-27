@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { FileDown, Sparkles, TrendingUp } from "lucide-react";
 import { AssetTypeFilter } from "@/components/assets/AssetTypeFilter";
 import type { AssetType } from "@/types";
@@ -30,6 +30,7 @@ import { formatCurrency } from "@/lib/utils";
 import { exportPortfolioToPdf } from "@/lib/exportPortfolioPdf";
 import { toast } from "sonner";
 import { GlossarySection } from "@/components/GlossaryTooltip";
+import { isInsufficientTokensError } from "@/lib/tokenErrors";
 import type { AISuggestionItem } from "@/types";
 import {
   buildRiskAlerts,
@@ -215,7 +216,7 @@ export function DashboardPage() {
         }
       : sentimentInput;
 
-  const { data: portfolioSentiment, isLoading: sentimentLoading } =
+  const { data: portfolioSentiment, isLoading: sentimentLoading, isError: sentimentError, error: sentimentErrorObj } =
     usePortfolioSentiment(
       sentimentInputForApi ?? {
         portfolio: { totalValue: 0, totalCost: 0, roi: 0, byType: [] },
@@ -232,6 +233,12 @@ export function DashboardPage() {
     ? demoSuggestion
     : latestSuggestion ?? null;
   const displaySuggestionLoading = demoMode ? false : latestSuggestionLoading;
+
+  useEffect(() => {
+    if (sentimentError && sentimentErrorObj && isInsufficientTokensError(sentimentErrorObj)) {
+      toast.error("Insufficient tokens for sentiment. Buy more in Account.");
+    }
+  }, [sentimentError, sentimentErrorObj]);
 
   if (isLoading || portfolioLoadingState) {
     return (
@@ -297,10 +304,15 @@ export function DashboardPage() {
       },
       {
         onSuccess: () => setAiModalOpen(true),
-        onError: (err) =>
-          toast.error(
-            err instanceof Error ? err.message : "Failed to get AI rating"
-          ),
+        onError: (err) => {
+          if (isInsufficientTokensError(err)) {
+            toast.error("Insufficient tokens. Buy more in Account.");
+          } else {
+            toast.error(
+              err instanceof Error ? err.message : "Failed to get AI rating"
+            );
+          }
+        },
       }
     );
   };
