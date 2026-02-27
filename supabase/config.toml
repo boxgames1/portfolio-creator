@@ -52,3 +52,7 @@ verify_jwt = false
 # Disable gateway JWT verification to avoid 401 Invalid JWT (e.g. after refresh).
 [functions.create-checkout-session]
 verify_jwt = false
+
+# stripe-webhook is called by Stripe servers (no JWT). Must disable verify_jwt.
+[functions.stripe-webhook]
+verify_jwt = false
