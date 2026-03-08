@@ -7,6 +7,7 @@ export const TOKEN_COSTS = {
   ai_suggestions: 20,
   portfolio_sentiment: 10,
   real_estate_estimate: 5,
+  real_estate_valuation: 15,
 } as const;
 
 export type TokenReference = keyof typeof TOKEN_COSTS;

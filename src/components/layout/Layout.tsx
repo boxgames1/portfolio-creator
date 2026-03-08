@@ -7,6 +7,7 @@ import {
   PlusCircle,
   LogOut,
   Bot,
+  Home,
   User,
   Coins,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/assets", label: "Assets", icon: Wallet },
   { path: "/warren-ai", label: "Warren AI", icon: Bot },
+  { path: "/real-estate", label: "Real Estate", icon: Home },
   { path: "/account", label: "Account", icon: User },
 ];
 

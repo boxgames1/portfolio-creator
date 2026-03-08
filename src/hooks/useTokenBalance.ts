@@ -37,6 +37,7 @@ const REFERENCE_LABELS: Record<string, string> = {
   ai_suggestions: "AI rating & suggestions",
   portfolio_sentiment: "Sentiment analysis",
   real_estate_estimate: "Real estate estimate",
+  real_estate_valuation: "Real estate valuation",
 };
 
 export function getReferenceLabel(reference: string): string {

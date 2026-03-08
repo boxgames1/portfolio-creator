@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.portfolio-chat]
 verify_jwt = false
+
+[functions.real-estate-valuation]
+verify_jwt = false

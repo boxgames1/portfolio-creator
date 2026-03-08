@@ -243,6 +243,7 @@ export function AccountPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-1">
           <p>• Portfolio / Warren AI chat: 15 tokens per message</p>
+          <p>• Real estate valuation: 15 tokens per request</p>
           <p>• Re-assess portfolio rating & suggestions: 20 tokens</p>
           <p>• Sentiment analysis: 10 tokens</p>
           <p>• Real estate value estimate (per property): 5 tokens</p>
